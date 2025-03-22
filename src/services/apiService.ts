@@ -12,7 +12,10 @@ class ApiService {
   private readonly baseUrl: string;
 
   private constructor() {
-    this.baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    if (!import.meta.env.VITE_API_URL) {
+      console.warn('VITE_API_URL is not set. API calls may fail in production.');
+    }
+    this.baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
   }
 
   static getInstance(): ApiService {

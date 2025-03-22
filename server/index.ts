@@ -21,10 +21,12 @@ const supabase = createClient(
 );
 
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? process.env.FRONTEND_URL 
-    : 'http://localhost:5173',
-  credentials: true
+  origin: process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' 
+    ? 'https://smartplaylist.vercel.app'
+    : 'http://localhost:5173'),
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(express.json());

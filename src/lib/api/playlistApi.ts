@@ -1,7 +1,7 @@
 import type { PlaylistGenerationOptions } from '../../types/playlist';
 import { playlistService } from '../../services/playlistService';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 const isDevelopment = import.meta.env.DEV;
 
 /**
