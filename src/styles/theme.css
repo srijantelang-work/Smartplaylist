@@ -1,0 +1,203 @@
+:root {
+  /* Light theme variables */
+  --light-bg: #ffffff;
+  --light-text: #1a1a1a;
+  --light-primary: #1DB954;
+  --light-secondary: #f5f5f5;
+  --light-accent: #e0e0e0;
+  --light-error: #dc3545;
+  --light-success: #28a745;
+  --light-surface: #ffffff;
+  --light-card: #f8f9fa;
+
+  /* Dark theme variables */
+  --dark-bg: #121212;
+  --dark-text: #ffffff;
+  --dark-primary: #1DB954;
+  --dark-secondary: #282828;
+  --dark-accent: #404040;
+  --dark-error: #ff4444;
+  --dark-success: #00C851;
+  --dark-surface: #1e1e1e;
+  --dark-card: #282828;
+
+  /* Common variables */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --transition-base: 0.2s ease;
+}
+
+/* Default theme (dark) */
+:root {
+  --bg-color: var(--dark-bg);
+  --text-color: var(--dark-text);
+  --primary-color: var(--dark-primary);
+  --secondary-color: var(--dark-secondary);
+  --accent-color: var(--dark-accent);
+  --error-color: var(--dark-error);
+  --success-color: var(--dark-success);
+  --surface-color: var(--dark-surface);
+  --card-color: var(--dark-card);
+}
+
+/* Light theme */
+[data-theme="light"] {
+  --bg-color: var(--light-bg);
+  --text-color: var(--light-text);
+  --primary-color: var(--light-primary);
+  --secondary-color: var(--light-secondary);
+  --accent-color: var(--light-accent);
+  --error-color: var(--light-error);
+  --success-color: var(--light-success);
+  --surface-color: var(--light-surface);
+  --card-color: var(--light-card);
+}
+
+/* High contrast theme */
+[data-theme="high-contrast"] {
+  --bg-color: #000000;
+  --text-color: #ffffff;
+  --primary-color: #ffff00;
+  --secondary-color: #ffffff;
+  --accent-color: #ffff00;
+  --error-color: #ff0000;
+  --success-color: #00ff00;
+}
+
+/* Base styles */
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Font size utilities */
+[data-font-size="small"] {
+  font-size: 14px;
+}
+
+[data-font-size="medium"] {
+  font-size: 16px;
+}
+
+[data-font-size="large"] {
+  font-size: 18px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+[data-reduced-motion="true"] * {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Loading states */
+.loading {
+  opacity: 0.7;
+  pointer-events: none;
+  position: relative;
+}
+
+.loading::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 24px;
+  height: 24px;
+  margin: -12px 0 0 -12px;
+  border: 2px solid var(--primary-color);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: loading-spinner 0.8s linear infinite;
+}
+
+@keyframes loading-spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Offline indicator */
+.offline-indicator {
+  background-color: var(--error-color);
+  color: white;
+  padding: 8px 16px;
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  border-radius: 4px;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Component styles */
+.card {
+  background-color: var(--card-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
+.button {
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.button-primary {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.button-primary:hover {
+  filter: brightness(1.1);
+}
+
+.input {
+  background-color: var(--surface-color);
+  border: 1px solid var(--accent-color);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  transition: border-color var(--transition-base);
+}
+
+.input:focus {
+  border-color: var(--primary-color);
+  outline: none;
+}
+
+.chip {
+  background-color: var(--secondary-color);
+  border-radius: var(--radius-lg);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  transition: all var(--transition-base);
+  cursor: pointer;
+}
+
+.chip:hover {
+  background-color: var(--accent-color);
+}
+
+.chip.selected {
+  background-color: var(--primary-color);
+  color: white;
+} 

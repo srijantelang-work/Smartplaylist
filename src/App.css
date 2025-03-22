@@ -1,0 +1,38 @@
+#root {
+  @apply w-full min-h-screen;
+}
+
+.logo {
+  @apply h-24 p-6 will-change-[filter] transition-[filter] duration-300;
+}
+
+.logo:hover {
+  @apply drop-shadow-lg;
+}
+
+.logo.react:hover {
+  @apply drop-shadow-[0_0_2em_#61dafbaa];
+}
+
+@keyframes logo-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  a:nth-of-type(2) .logo {
+    animation: logo-spin infinite 20s linear;
+  }
+}
+
+.card {
+  @apply p-8;
+}
+
+.read-the-docs {
+  @apply text-gray-400;
+}
