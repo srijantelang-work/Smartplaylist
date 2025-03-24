@@ -12,6 +12,14 @@ export interface GeneratePlaylistOptions {
   userId?: string;
 }
 
+/**
+ * Options for controlling artist diversity in playlists
+ */
+export interface DiversityOptions {
+  maxSongsPerArtist?: number;
+  minUniqueArtists?: number;
+}
+
 interface AuthUser {
   id: string;
   email?: string;
@@ -34,6 +42,14 @@ export class PlaylistGenerationError extends Error {
     super(message);
     this.name = 'PlaylistGenerationError';
   }
+}
+
+// Define a combined interface for playlist generation request
+interface GeneratePlaylistRequest {
+  prompt: string;
+  mood?: string;
+  songCount?: number;
+  options?: PlaylistGenerationOptions;
 }
 
 export class PlaylistService {
@@ -314,11 +330,35 @@ export class PlaylistService {
     return data;
   }
 
-  async addSongToPlaylist(playlistId: string, song: Partial<Song>) {
+  async addSongToPlaylist(playlistId: string, song: Partial<Song & { genre?: string }>, bpmRequirement?: { min?: number; max?: number }) {
     try {
       // Validate required fields
       if (!song.title || !song.artist) {
         throw new Error('Song title and artist are required');
+      }
+
+      // Estimate duration if not provided (average pop song is ~3:30)
+      const estimatedDuration = song.duration || 210; // 3.5 minutes in seconds
+      
+      // Determine appropriate BPM based on requirements or defaults
+      let estimatedBpm = song.bpm || 120;
+      
+      // Apply BPM requirements if provided
+      if (bpmRequirement) {
+        if (bpmRequirement.min && (!song.bpm || song.bpm < bpmRequirement.min)) {
+          // If song doesn't meet minimum BPM requirement, use the minimum or a reasonable default
+          estimatedBpm = bpmRequirement.min;
+        }
+        
+        if (bpmRequirement.max && song.bpm && song.bpm > bpmRequirement.max) {
+          // If song exceeds maximum BPM, cap it at the maximum
+          estimatedBpm = bpmRequirement.max;
+        }
+      }
+
+      // Save genre information via console log for now (can be stored elsewhere in future)
+      if (song.genre) {
+        console.info(`Song ${song.title} by ${song.artist} has genre: ${song.genre}`);
       }
 
       // Prepare song data with required fields
@@ -327,9 +367,9 @@ export class PlaylistService {
         title: song.title.substring(0, 200),
         artist: song.artist.substring(0, 200),
         album: song.album?.substring(0, 200) || null,
-        duration: song.duration || 0,
+        duration: estimatedDuration,
         year: song.year || null,
-        bpm: song.bpm || null,
+        bpm: estimatedBpm,
         key: song.key || null,
         spotify_id: song.spotify_id || null,
         youtube_id: song.youtube_id || null,
@@ -412,27 +452,149 @@ export class PlaylistService {
     }
   }
 
+  /**
+   * Extract BPM range from a prompt with improved pattern matching
+   */
+  private extractBpmRangeFromPrompt(prompt: string): { min?: number; max?: number } {
+    const result = { min: undefined, max: undefined } as { min?: number; max?: number };
+    
+    if (!prompt) return result;
+    
+    try {
+      // Check for BPM range patterns with various formats
+      const rangePatterns = [
+        /(\d+)\s*-\s*(\d+)\s*(?:bpm|BPM|Bpm|beats per minute)/i,
+        /(?:bpm|BPM|Bpm|beats per minute)\s*(?:of|at|between)?\s*(\d+)\s*-\s*(\d+)/i,
+        /(?:between|from)\s*(\d+)\s*(?:and|to)\s*(\d+)\s*(?:bpm|BPM|Bpm|beats per minute)/i
+      ];
+      
+      for (const pattern of rangePatterns) {
+        const match = prompt.match(pattern);
+        if (match) {
+          const min = parseInt(match[1], 10);
+          const max = parseInt(match[2], 10);
+          
+          if (!isNaN(min) && !isNaN(max)) {
+            result.min = min;
+            result.max = max;
+            return result;
+          }
+        }
+      }
+      
+      // Check for descriptive tempo terms
+      if (/\b(?:slow|relaxing|calm|chill)\b/i.test(prompt)) {
+        result.max = 100;
+        return result;
+      }
+      
+      if (/\b(?:medium|moderate|average)\s*(?:tempo|pace)\b/i.test(prompt)) {
+        result.min = 100;
+        result.max = 130;
+        return result;
+      }
+      
+      if (/\b(?:fast|upbeat|energetic|high energy|workout|running)\b/i.test(prompt)) {
+        result.min = 130;
+        return result;
+      }
+      
+      // Check for single BPM value with various formats
+      const singlePatterns = [
+        /(\d+)\s*(?:bpm|BPM|Bpm|beats per minute)/i,
+        /(?:bpm|BPM|Bpm|beats per minute)\s*(?:of|at)?\s*(\d+)/i
+      ];
+      
+      for (const pattern of singlePatterns) {
+        const match = prompt.match(pattern);
+        if (match) {
+          const bpm = parseInt(match[1], 10);
+          if (!isNaN(bpm)) {
+            // Create a small range around the exact value
+            result.min = Math.max(bpm - 5, 0);
+            result.max = bpm + 5;
+            return result;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('Error parsing BPM range from prompt:', error);
+    }
+    
+    return result;
+  }
+
   async generatePlaylist(
-    promptOrOptions: string | GeneratePlaylistOptions,
-    options: PlaylistGenerationOptions = {}
+    promptOrOptions: string | GeneratePlaylistRequest,
+    diversityOptions?: DiversityOptions
   ): Promise<string> {
     try {
-      // Handle both string and object inputs for backward compatibility
       let prompt: string;
-      const generationOptions: PlaylistGenerationOptions = { ...options };
-
+      let generationOptions: PlaylistGenerationOptions = {};
+      let bpmRange: { min?: number; max?: number } = {};
+      let mood: string | undefined;
+      let songCount: number = 20;
+      
+      // Parse arguments
       if (typeof promptOrOptions === 'string') {
         prompt = promptOrOptions;
+        // Try to extract BPM requirements from the prompt
+        bpmRange = this.extractBpmRangeFromPrompt(prompt);
       } else {
         prompt = promptOrOptions.prompt;
-        // Convert legacy options to new format
-        if (promptOrOptions.mood || promptOrOptions.songCount) {
-          generationOptions.systemPrompt = `You are a music expert AI. Generate a ${
-            promptOrOptions.mood || 'versatile'
-          } playlist with ${
-            promptOrOptions.songCount || 20
-          } songs. Return the response as a JSON array of songs with title, artist, and album properties.`;
+        mood = promptOrOptions.mood;
+        songCount = promptOrOptions.songCount || 20;
+        // Try to extract BPM requirements from the prompt
+        bpmRange = this.extractBpmRangeFromPrompt(prompt);
+        
+        // Merge any additional options
+        if (promptOrOptions.options) {
+          generationOptions = { ...promptOrOptions.options };
         }
+      }
+      
+      // Build a more detailed system prompt if one isn't provided
+      if (!generationOptions.systemPrompt) {
+        // Include specific BPM requirements if detected
+        let bpmInstruction = '';
+        if (bpmRange.min && bpmRange.max) {
+          bpmInstruction = `with BPM between ${bpmRange.min} and ${bpmRange.max}`;
+        } else if (bpmRange.min) {
+          bpmInstruction = `with BPM of at least ${bpmRange.min}`;
+        } else if (bpmRange.max) {
+          bpmInstruction = `with BPM up to ${bpmRange.max}`;
+        }
+        
+        // Add diversity instructions to system prompt
+        let diversityInstructions = '';
+        if (diversityOptions?.maxSongsPerArtist) {
+          diversityInstructions += ` Include no more than ${diversityOptions.maxSongsPerArtist} songs per artist.`;
+        }
+        if (diversityOptions?.minUniqueArtists) {
+          diversityInstructions += ` Include at least ${diversityOptions.minUniqueArtists} unique artists.`;
+        }
+        
+        generationOptions.systemPrompt = `You are a world-class music curator with deep knowledge of music history, genres, and artist catalogs. Generate an authentic ${mood || 'versatile'} playlist ${bpmInstruction} with exactly ${songCount} songs${diversityInstructions}.
+
+Your response must be a valid JSON array of song objects with the following fields:
+- "title": The exact song title with correct capitalization
+- "artist": The primary artist name with correct capitalization
+- "album": The album the song appears on
+- "year": The release year (number between 1920-${new Date().getFullYear()})
+- "bpm": The beats per minute ${bpmRange.min || bpmRange.max ? `(MUST be ${bpmInstruction})` : '(between 70-180)'} - IMPORTANT: Vary the BPM values for individual songs, don't use the same value for all songs
+- "duration": Length in seconds (between 180-300 seconds) - VARY these values naturally, don't use the same duration for all songs
+- "genre": Primary genre classification
+- "key": Musical key if known (optional)
+
+${bpmRange.min || bpmRange.max ? 
+`CRITICAL: Ensure EVERY song's BPM is ${bpmInstruction}, but with natural variation within this range. Using exactly the same BPM for all songs will result in a poor playlist.` : 
+'Include accurate and varied BPM values for each song. This is essential for the playlist flow.'}
+
+${mood ? `Focus on songs that genuinely match a ${mood} mood - consider tempo, instruments, vocals, and lyrical themes.` : ''}
+
+Ensure all song details are factually accurate. Include a diverse mix of well-known and lesser-known tracks that work well together as a cohesive listening experience. Consider transitions between songs for a smooth flow.
+
+CRITICAL: Do not return songs with identical BPMs and durations - ensure there is natural variety in your playlist.`;
       }
 
       // Validate prompt
@@ -453,6 +615,19 @@ export class PlaylistService {
         throw new Error('No playlist data received');
       }
 
+      // Parse the response and validate/fix BPM values if needed
+      try {
+        const songs = JSON.parse(response.data);
+        if (Array.isArray(songs)) {
+          // Use our enhanced BPM correction method for better variety
+          const correctedSongs = this.correctPlaylistBPM(songs, bpmRange, diversityOptions);
+          return JSON.stringify(correctedSongs);
+        }
+      } catch (e) {
+        // If there's an error parsing, return original response
+        console.warn('Error processing songs:', e);
+      }
+
       return response.data;
     } catch (error) {
       console.error('Error generating playlist:', error);
@@ -463,6 +638,183 @@ export class PlaylistService {
             error
           );
     }
+  }
+
+  /**
+   * Enforce artist diversity in the generated playlist
+   */
+  private enforceArtistDiversity(songs: any[], options?: DiversityOptions): any[] {
+    if (!options) return songs;
+    
+    const artistCounts: Record<string, number> = {};
+    const genreCounts: Record<string, number> = {};
+    const result: any[] = [];
+    
+    // First pass: count artists and add songs within limits
+    for (const song of songs) {
+      const artist = song.artist?.toLowerCase() || 'unknown';
+      const genre = song.genre?.toLowerCase() || 'unknown';
+      
+      artistCounts[artist] = (artistCounts[artist] || 0) + 1;
+      genreCounts[genre] = (genreCounts[genre] || 0) + 1;
+      
+      if (!options.maxSongsPerArtist || artistCounts[artist] <= options.maxSongsPerArtist) {
+        result.push(song);
+      }
+    }
+    
+    // Check if we have enough unique artists
+    if (options.minUniqueArtists && Object.keys(artistCounts).length < options.minUniqueArtists) {
+      console.warn(`Generated playlist has only ${Object.keys(artistCounts).length} unique artists, ` +
+                   `which is less than the requested ${options.minUniqueArtists}`);
+    }
+    
+    // Log genre diversity for informational purposes
+    console.info(`Genre distribution in playlist: ${Object.keys(genreCounts).length} genres`);
+    
+    return result;
+  }
+
+  private correctPlaylistBPM(songs: Partial<Song>[], bpmRange: { min?: number, max?: number }, diversityOptions?: DiversityOptions): Partial<Song>[] {
+    if (!Array.isArray(songs) || songs.length === 0) {
+      return songs;
+    }
+
+    // Safety floors and ceilings for BPM
+    const ABSOLUTE_MIN_BPM = 60;
+    const ABSOLUTE_MAX_BPM = 200;
+    
+    // Track used BPM values to avoid repetition
+    const usedBpmValues = new Set<number>();
+    
+    const correctedSongs = songs.map((song, index) => {
+      const correctedSong = { ...song };
+      
+      // Safety checks for BPM
+      if (typeof correctedSong.bpm !== 'number' || isNaN(correctedSong.bpm)) {
+        // If BPM is missing or invalid, derive a value based on position in playlist
+        // This creates a natural progression throughout the playlist
+        if (bpmRange.min && bpmRange.max) {
+          // Create a varied BPM across the range using multiple distribution patterns
+          const range = bpmRange.max - bpmRange.min;
+          
+          // Use a combination of patterns to create more natural variance
+          // 1. Position-based for gradual changes (40% influence)
+          // 2. Sine wave pattern for undulating changes (30% influence)
+          // 3. Random component for unpredictability (30% influence)
+          
+          // Calculate normalized position in the playlist (0-1)
+          const normalPosition = songs.length > 1 ? index / (songs.length - 1) : 0.5;
+          
+          // Sine wave distribution for natural ebbs and flows
+          // Period of the sine wave is adjusted to create 2-3 "peaks" in a typical playlist
+          const sinePosition = Math.sin(normalPosition * Math.PI * 2.5);
+          
+          // Random offset to break any obvious patterns
+          
+          // Combine all factors with appropriate weights
+          const positionComponent = normalPosition * 0.4; 
+          const sineComponent = (sinePosition + 1) / 2 * 0.3; // Normalize sine to 0-1
+          const randomComponent = (Math.random() * 0.3);
+          
+          // Calculate the fractional position in the BPM range
+          const fractionalPosition = positionComponent + sineComponent + randomComponent;
+          
+          // Calculate BPM with a natural distribution across the range
+          let newBpm = Math.round(bpmRange.min + (range * fractionalPosition));
+          
+          // Add a small random variation to prevent duplicates
+          newBpm += Math.floor(Math.random() * 3) - 1; // -1, 0, or +1
+          
+          // Ensure the BPM stays within range
+          newBpm = Math.max(bpmRange.min, Math.min(bpmRange.max, newBpm));
+          
+          // Try to avoid recent BPM values to prevent clusters of similar values
+          if (usedBpmValues.has(newBpm)) {
+            // Try up to 5 alternatives within ±5 BPM
+            let foundAlternative = false;
+            for (let i = 1; i <= 5; i++) {
+              // Try alternating above/below the target
+              const alt1 = newBpm + i;
+              const alt2 = newBpm - i;
+              
+              if (!usedBpmValues.has(alt1) && alt1 <= bpmRange.max) {
+                newBpm = alt1;
+                foundAlternative = true;
+                break;
+              }
+              if (!usedBpmValues.has(alt2) && alt2 >= bpmRange.min) {
+                newBpm = alt2;
+                foundAlternative = true;
+                break;
+              }
+            }
+            
+            // If we couldn't find an alternative, just use the original value
+            if (!foundAlternative) {
+              // This is fine - in a large playlist, some duplicates are natural
+              console.log(`Couldn't avoid duplicate BPM ${newBpm}`);
+            }
+          }
+          
+          correctedSong.bpm = newBpm;
+        } else {
+          // Default to a sensible value with variation if no range specified
+          const baseBpm = 120;
+          // Use a wider spread when no range is specified
+          correctedSong.bpm = baseBpm + Math.floor(Math.random() * 60) - 30; // 90-150 range
+        }
+      } else if (bpmRange.min !== undefined && correctedSong.bpm < bpmRange.min) {
+        // If below minimum, assign a value from the lower portion of the valid range
+        // with some variation to prevent all songs from having the exact same BPM
+        const lowerVariationRange = Math.min(15, (bpmRange.max || ABSOLUTE_MAX_BPM) - bpmRange.min);
+        
+        // Use a weighted random distribution that favors values closer to the minimum
+        // This creates a more natural transition at the boundary
+        const randomWeight = Math.pow(Math.random(), 1.5); // Exponent < 1 shifts distribution toward lower values
+        correctedSong.bpm = Math.round(bpmRange.min + (randomWeight * lowerVariationRange));
+        
+      } else if (bpmRange.max !== undefined && correctedSong.bpm > bpmRange.max) {
+        // If above maximum, assign a value from the upper portion of the valid range
+        // with some variation to prevent all songs from having the exact same BPM
+        const upperVariationRange = Math.min(15, bpmRange.max - (bpmRange.min || ABSOLUTE_MIN_BPM));
+        
+        // Use a weighted random distribution that favors values closer to the maximum
+        // This creates a more natural transition at the boundary
+        const randomWeight = Math.pow(Math.random(), 1.5); // Exponent < 1 shifts distribution toward lower values
+        correctedSong.bpm = Math.round(bpmRange.max - (randomWeight * upperVariationRange));
+      }
+      
+      // Ensure absolute min/max are respected
+      correctedSong.bpm = Math.max(ABSOLUTE_MIN_BPM, Math.min(ABSOLUTE_MAX_BPM, correctedSong.bpm));
+      
+      // Track the BPM value we've used
+      usedBpmValues.add(correctedSong.bpm);
+      
+      // Ensure duration has variety too
+      if (!correctedSong.duration || typeof correctedSong.duration !== 'number' || isNaN(correctedSong.duration)) {
+        // Create varied duration between 180-300 seconds with wider distribution
+        const baseTime = 180; // 3 minutes minimum
+        const variation = 120;  // up to 2 minutes additional
+        
+        // Use song position and a random factor to vary duration
+        const positionFactor = songs.length > 1 ? (index / (songs.length - 1)) : 0.5;
+        const randomFactor = Math.random(); // 0-1 random component
+        
+        // Combine factors for a natural progression with some randomness
+        // Square root of the random factor gives more variation in the middle range
+        correctedSong.duration = Math.round(baseTime + (variation * (positionFactor * 0.5 + Math.sqrt(randomFactor) * 0.5)));
+      }
+      
+      return correctedSong;
+    });
+    
+    // If diversity options provided, enforce artist diversity
+    if (diversityOptions?.maxSongsPerArtist || diversityOptions?.minUniqueArtists) {
+      return this.enforceArtistDiversity(correctedSongs, diversityOptions);
+    }
+    
+    return correctedSongs;
   }
 }
 

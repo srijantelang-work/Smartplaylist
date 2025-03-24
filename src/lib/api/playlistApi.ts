@@ -15,7 +15,7 @@ export async function generatePlaylistSuggestionsApi(
 ): Promise<string> {
   try {
     if (isDevelopment) {
-      return await playlistService.generatePlaylist(prompt, options);
+      return await playlistService.generatePlaylist(prompt);
     }
 
     // In production, use API endpoint

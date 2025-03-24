@@ -51,17 +51,54 @@ export function CreatePlaylistPage() {
         throw new Error('Failed to create playlist');
       }
 
-      // Generate songs
-      const generatedSongs = await playlistService.generatePlaylist({
-        prompt: data.prompt,
-        mood: data.mood || undefined,
-        songCount: data.songCount,
-      });
+      // Generate songs with diversity options
+      const generatedSongs = await playlistService.generatePlaylist(
+        {
+          prompt: data.prompt,
+          mood: data.mood || undefined,
+          songCount: data.songCount,
+        },
+        // Add diversity options to ensure a better mix of artists
+        {
+          maxSongsPerArtist: 2,  // Maximum 2 songs per artist
+          minUniqueArtists: Math.max(5, Math.floor(data.songCount / 3)) // At least 1/3 of playlist as unique artists
+        }
+      );
 
-      // Parse the generated songs and add them to the playlist
-      const songs = JSON.parse(generatedSongs);
-      for (const song of songs) {
-        await playlistService.addSongToPlaylist(playlist.id, song);
+      try {
+        // Parse the generated songs and add them to the playlist
+        const songs = JSON.parse(generatedSongs);
+        
+        if (!Array.isArray(songs)) {
+          throw new Error('Generated songs must be an array');
+        }
+        
+        // Process each song, sanitizing data to prevent errors
+        for (const songData of songs) {
+          // Ensure the song has required fields
+          if (!songData.title || !songData.artist) {
+            console.warn('Skipping song with missing required fields:', songData);
+            continue;
+          }
+          
+          // Normalize the song data to prevent unexpected fields
+          const sanitizedSong = {
+            title: String(songData.title).trim(),
+            artist: String(songData.artist).trim(),
+            album: songData.album ? String(songData.album).trim() : null,
+            duration: songData.duration ? Number(songData.duration) : undefined,
+            year: songData.year ? Number(songData.year) : null,
+            bpm: songData.bpm ? Number(songData.bpm) : null,
+            key: songData.key ? String(songData.key).trim() : null,
+            genre: songData.genre ? String(songData.genre).trim() : undefined
+          };
+          
+          // Add the sanitized song to the playlist
+          await playlistService.addSongToPlaylist(playlist.id, sanitizedSong);
+        }
+      } catch (parseError) {
+        console.error('Error parsing or processing generated songs:', parseError);
+        throw new Error('Failed to process generated songs. Please try again.');
       }
 
       navigate(`/playlist-result/${playlist.id}`);
