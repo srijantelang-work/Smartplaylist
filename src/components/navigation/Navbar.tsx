@@ -26,9 +26,7 @@ export function Navbar() {
               to="/"
               className="flex items-center space-x-2 text-white font-bold text-xl"
             >
-              <svg className="w-8 h-8 text-[#1DB954]" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02z"/>
-              </svg>
+              <img src="/logo.png" alt="SmartPlaylist Logo" className="w-20 h-20" />
               <span>SmartPlaylist</span>
             </Link>
             <div className="hidden md:flex md:ml-8 md:space-x-4">

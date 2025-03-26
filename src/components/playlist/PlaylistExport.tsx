@@ -1,5 +1,7 @@
-import  { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { PlaylistExportService, type ExportPlatform } from '../../services/playlistExportService';
+import { SpotifyService } from '../../services/spotifyService';
+import { supabase } from '../../lib/supabase';
 
 interface PlaylistExportProps {
   playlistId: string;
@@ -13,12 +15,33 @@ export function PlaylistExport({ playlistId, className = '', onExportComplete }:
   const [description, setDescription] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSpotifyConnected, setIsSpotifyConnected] = useState<boolean>(false);
+
+  useEffect(() => {
+    checkSpotifyConnection();
+  }, []);
+
+  const checkSpotifyConnection = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setIsSpotifyConnected(!!user?.user_metadata?.spotify_tokens);
+  };
 
   const handleExport = async () => {
     setIsExporting(true);
     setError(null);
 
     try {
+      if (platform === 'spotify' && !isSpotifyConnected) {
+        // Initiate Spotify connection if not connected
+        const spotifyService = SpotifyService.getInstance();
+        await spotifyService.authorize({
+          playlistId,
+          isPublic,
+          description: description || undefined
+        });
+        return; // The auth flow will redirect to callback
+      }
+
       const exportService = PlaylistExportService.getInstance();
       const result = await exportService.exportPlaylist(
         playlistId,

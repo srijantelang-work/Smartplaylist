@@ -9,7 +9,7 @@ export function AuthPage() {
   const navigate = useNavigate();
 
   const handleSuccess = () => {
-    navigate('/create-playlist');
+    navigate('/');
   };
 
   return (

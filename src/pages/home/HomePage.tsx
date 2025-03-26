@@ -106,6 +106,28 @@ export function HomePage() {
         </div>
       </section>
 
+      {/* Demo Video Section */}
+      <section className="py-20 bg-black">
+        <div className="container mx-auto px-4">
+          <h2 className="text-4xl font-bold text-center mb-8">
+            See <span className="text-[#1DB954]">SmartPlaylist</span> in Action
+          </h2>
+          <div className="max-w-4xl mx-auto rounded-xl overflow-hidden shadow-2xl">
+            <video
+              className="w-full aspect-video"
+              controls
+              poster="/video-thumbnail.jpg"
+            >
+              <source src="/demo.mp4" type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+          </div>
+          <p className="text-center text-[#E8E8E8] mt-6 max-w-2xl mx-auto">
+            Watch how easy it is to create AI-powered playlists tailored to your mood and preferences.
+          </p>
+        </div>
+      </section>
+
       {/* Features Section */}
       <section className="py-20 bg-[#000000]">
         <div className="container mx-auto px-4">
@@ -133,11 +155,19 @@ export function HomePage() {
           <h2 className="text-4xl font-bold text-center mb-16">
             How It <span className="text-[#1DB954]">Works</span>
           </h2>
-          <div className="grid md:grid-cols-4 gap-8">
+          <div className="grid md:grid-cols-5 gap-8">
             {steps.map((step, index) => (
-              <div key={index} className="text-center">
+              <div key={index} className="text-center flex flex-col items-center">
                 <div className="w-16 h-16 rounded-full bg-[#1DB954] flex items-center justify-center mx-auto mb-6 text-2xl font-bold">
                   {index + 1}
+                </div>
+                <div className="relative w-full aspect-[16/9] mb-6 rounded-lg overflow-hidden shadow-xl">
+                  <img
+                    src={step.image}
+                    alt={step.title}
+                    className="w-full h-full object-cover object-center transform hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute inset-0 bg-black/20 pointer-events-none"></div>
                 </div>
                 <h3 className="text-xl font-semibold mb-3">{step.title}</h3>
                 <p className="text-[#E8E8E8]">{step.description}</p>
@@ -215,19 +245,28 @@ const steps = [
   {
     title: 'Sign Up',
     description: 'Create your account and set your music preferences',
+    image: '/loginpage.jpeg'
   },
   {
-    title: 'Describe Your Mood',
+    title: 'Explore Homepage',
+    description: 'Browse through our features and discover what we offer',
+    image: '/homepage.jpg'
+  },
+  {
+    title: 'Create Playlist',
     description: 'Tell us what kind of playlist you want',
+    image: '/create-playlist.jpeg'
   },
   {
     title: 'AI Generation',
     description: 'Our AI creates your personalized playlist',
+    image: '/playlist-result.jpeg'
   },
   {
-    title: 'Enjoy & Share',
-    description: 'Listen to your playlist and share with friends',
-  },
+    title: 'Export & Share',
+    description: 'Export to your favorite platform and share with friends',
+    image: '/export.jpeg'
+  }
 ];
 
 const benefits = [

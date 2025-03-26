@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { SpotifyService } from '../../services/spotifyService';
+import { PlaylistExportService } from '../../services/playlistExportService';
 
 export function AuthCallback() {
   const navigate = useNavigate();
@@ -37,6 +38,26 @@ export function AuthCallback() {
             throw new Error('Failed to complete Spotify integration');
           }
 
+          // If we have a playlistId in state, continue with export
+          if (stateData.playlistId) {
+            const exportService = PlaylistExportService.getInstance();
+            const result = await exportService.exportPlaylist(
+              stateData.playlistId,
+              'spotify',
+              {
+                isPublic: stateData.isPublic || false,
+                includeDescription: true,
+                description: stateData.description
+              }
+            );
+
+            if (result.success) {
+              // Navigate back to playlist with success message
+              navigate(`/playlist/${stateData.playlistId}?export=success&url=${encodeURIComponent(result.url)}`, { replace: true });
+              return;
+            }
+          }
+
           // Return to the original page or default to settings
           const returnTo = stateData.returnTo || '/settings';
           navigate(returnTo, { replace: true });
@@ -61,7 +82,7 @@ export function AuthCallback() {
         }
         
         // Default navigation for Supabase auth
-        navigate('/create-playlist', { replace: true });
+        navigate('/', { replace: true });
       } catch (err) {
         console.error('Error in auth callback:', err);
         setError(err instanceof Error ? err.message : 'Authentication failed');

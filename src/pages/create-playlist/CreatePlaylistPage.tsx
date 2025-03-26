@@ -116,7 +116,7 @@ export function CreatePlaylistPage() {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gradient-to-b from-[var(--dark-bg)] via-[var(--dark-surface)] to-[var(--dark-bg)]">
-        <div className="max-w-4xl mx-auto px-4 py-12">
+        <div className="max-w-4xl mx-auto px-4 pt-24 pb-12">
           <div className="space-y-12">
             {/* Header */}
             <div className="text-center space-y-6">

@@ -100,7 +100,7 @@ export class SpotifyService {
   /**
    * Initiates the Spotify OAuth flow
    */
-  async authorize(): Promise<void> {
+  async authorize(exportDetails?: { playlistId: string; isPublic: boolean; description?: string }): Promise<void> {
     if (!this.clientId) {
       throw new Error('Spotify Client ID is not configured');
     }
@@ -112,7 +112,12 @@ export class SpotifyService {
         state,
         provider: 'spotify',
         timestamp: Date.now(),
-        returnTo: window.location.pathname // Store current path
+        returnTo: window.location.pathname, // Store current path
+        ...(exportDetails && {
+          playlistId: exportDetails.playlistId,
+          isPublic: exportDetails.isPublic,
+          description: exportDetails.description
+        })
       };
       sessionStorage.setItem('spotify_auth_state', JSON.stringify(stateData));
 
@@ -366,34 +371,61 @@ export class SpotifyService {
       throw new Error('No refresh token available');
     }
 
-    const response = await fetch('https://accounts.spotify.com/api/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        grant_type: 'refresh_token',
-        refresh_token: this.tokens.refresh_token,
-        client_id: this.clientId,
-      }),
-    });
+    try {
+      const response = await fetch('https://accounts.spotify.com/api/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': 'Basic ' + btoa(`${this.clientId}:${this.clientSecret}`),
+        },
+        body: new URLSearchParams({
+          grant_type: 'refresh_token',
+          refresh_token: this.tokens.refresh_token,
+        }),
+      });
 
-    if (!response.ok) {
-      throw new Error('Failed to refresh token');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Token refresh failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+        throw new Error(
+          `Token refresh failed: ${errorData.error_description || errorData.error || response.statusText}`
+        );
+      }
+
+      const data = await response.json();
+      
+      // Note: Spotify may not always return a new refresh token
+      this.tokens = {
+        ...this.tokens,
+        access_token: data.access_token,
+        refresh_token: data.refresh_token || this.tokens.refresh_token,
+        expires_at: Date.now() + data.expires_in * 1000,
+      };
+
+      // Update tokens in Supabase
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: {
+          spotify_tokens: this.tokens,
+        },
+      });
+
+      if (updateError) {
+        console.error('Failed to update tokens in Supabase:', updateError);
+        throw new Error('Failed to update tokens in user profile');
+      }
+    } catch (error) {
+      console.error('Token refresh error:', error);
+      // Clear tokens to force re-authentication
+      this.tokens = null;
+      throw new Error(
+        error instanceof Error 
+          ? `Failed to refresh token: ${error.message}`
+          : 'Failed to refresh token'
+      );
     }
-
-    const data = await response.json();
-    this.tokens = {
-      ...this.tokens,
-      access_token: data.access_token,
-      expires_at: Date.now() + data.expires_in * 1000,
-    };
-
-    // Update tokens in Supabase
-    await supabase.auth.updateUser({
-      data: {
-        spotify_tokens: this.tokens,
-      },
-    });
   }
 } 
