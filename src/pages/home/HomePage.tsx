@@ -1,6 +1,8 @@
 import { useAuth } from '../../hooks/useAuth';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import backgroundGif from '../../assets/images/fxVE.gif';
+import fallbackImage from '../../assets/images/dj-ring.jpeg';
 
 export function HomePage() {
   const { user } = useAuth();
@@ -17,14 +19,10 @@ export function HomePage() {
     img.onerror = (e) => {
       console.error('Error loading background GIF:', e);
       setBackgroundError(true);
-      if (img.src.startsWith('/')) {
-        img.src = 'dj-ring.jpeg';
-      } else {
-        img.src = '/dj-ring.jpeg';
-      }
+      img.src = fallbackImage;
     };
     
-    img.src = '/fxVE.gif';
+    img.src = backgroundGif;
 
     return () => {
       img.onload = null;
@@ -44,7 +42,7 @@ export function HomePage() {
               backgroundLoaded ? 'opacity-100' : 'opacity-0'
             }`}
             style={{
-              backgroundImage: `url('${backgroundError ? '/dj-ring.jpeg' : '/fxVE.gif'}')`,
+              backgroundImage: `url('${backgroundError ? fallbackImage : backgroundGif}')`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',
@@ -60,7 +58,7 @@ export function HomePage() {
             <div 
               className="absolute inset-0 rounded-full"
               style={{
-                backgroundImage: "url('/dj-ring.jpeg')",
+                backgroundImage: `url('${fallbackImage}')`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 backgroundRepeat: 'no-repeat',
