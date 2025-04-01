@@ -24,7 +24,7 @@ export function HomePage() {
       }
     };
     
-    img.src = 'fxVE.gif';
+    img.src = '/fxVE.gif';
 
     return () => {
       img.onload = null;
@@ -44,7 +44,7 @@ export function HomePage() {
               backgroundLoaded ? 'opacity-100' : 'opacity-0'
             }`}
             style={{
-              backgroundImage: `url('${backgroundError ? 'dj-ring.jpeg' : 'fxVE.gif'}')`,
+              backgroundImage: `url('${backgroundError ? '/dj-ring.jpeg' : '/fxVE.gif'}')`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',

@@ -65,7 +65,6 @@ export function Navigation({ children }: { children: React.ReactNode }) {
           {/* Logo */}
           <div className="flex h-16 flex-shrink-0 items-center px-4">
             <Link to="/" className="flex items-center space-x-2">
-              <img src="/logo.png" alt="SmartPlaylist Logo" className="w-10 h-10" />
               <span className="text-white font-bold text-xl">SmartPlaylist</span>
             </Link>
           </div>
@@ -131,7 +130,6 @@ export function Navigation({ children }: { children: React.ReactNode }) {
           <div className="fixed inset-y-0 left-0 w-full max-w-xs bg-[#121212] pt-5 pb-4 flex flex-col">
             <div className="px-4 flex items-center justify-between">
               <Link to="/" className="flex items-center space-x-2">
-                <img src="/logo.png" alt="SmartPlaylist Logo" className="w-10 h-10" />
                 <span className="text-white font-bold text-xl">SmartPlaylist</span>
               </Link>
               <button

@@ -26,7 +26,6 @@ export function Navbar() {
               to="/"
               className="flex items-center space-x-2 text-white font-bold text-xl"
             >
-              <img src="/logo.png" alt="SmartPlaylist Logo" className="w-20 h-20" />
               <span>SmartPlaylist</span>
             </Link>
             <div className="hidden md:flex md:ml-8 md:space-x-4">
