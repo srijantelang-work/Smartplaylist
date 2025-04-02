@@ -5,7 +5,7 @@ import { resolve } from 'path'
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   // Load env file based on mode
-  loadEnv(mode, process.cwd(), '')
+  const env = loadEnv(mode, process.cwd(), '')
 
   return {
     plugins: [react()],
@@ -28,14 +28,18 @@ export default defineConfig(({ mode }) => {
           },
           // Ensure proper module format
           format: 'es',
-          // Ensure proper file extensions
-          entryFileNames: 'assets/[name]-[hash].mjs',
-          chunkFileNames: 'assets/[name]-[hash].mjs',
+          // Ensure proper file extensions and asset handling
+          entryFileNames: 'assets/[name].[hash].js',
+          chunkFileNames: 'assets/[name].[hash].js',
+          assetFileNames: 'assets/[name].[hash].[ext]'
         },
       },
       // Ensure assets are copied correctly
       assetsInlineLimit: 4096,
       emptyOutDir: true,
+      // Add CSP headers
+      target: 'esnext',
+      cssTarget: 'chrome61',
     },
     // Resolve path aliases
     resolve: {

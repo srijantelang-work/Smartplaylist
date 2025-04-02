@@ -72,7 +72,8 @@ export class SpotifyService {
   private tokens: SpotifyTokens | null = null;
   private readonly clientId = import.meta.env.VITE_SPOTIFY_CLIENT_ID;
   private readonly clientSecret = import.meta.env.VITE_SPOTIFY_CLIENT_SECRET;
-  private readonly redirectUri = import.meta.env.VITE_APP_URL ? `${import.meta.env.VITE_APP_URL}/auth/callback` : `${window.location.origin}/auth/callback`;
+  private readonly supabaseCallbackUrl = 'https://mdpavdpfxubuoxmzhrvw.supabase.co/auth/v1/callback';
+  private readonly localCallbackUrl = import.meta.env.VITE_APP_URL ? `${import.meta.env.VITE_APP_URL}/auth/callback` : `${window.location.origin}/auth/callback`;
   private readonly scopes = [
     'playlist-modify-public',
     'playlist-modify-private',
@@ -97,10 +98,14 @@ export class SpotifyService {
     return SpotifyService.instance;
   }
 
+  private getRedirectUri(isSupabaseAuth: boolean = false): string {
+    return isSupabaseAuth ? this.supabaseCallbackUrl : this.localCallbackUrl;
+  }
+
   /**
    * Initiates the Spotify OAuth flow
    */
-  async authorize(exportDetails?: { playlistId: string; isPublic: boolean; description?: string }): Promise<void> {
+  async authorize(exportDetails?: { playlistId: string; isPublic: boolean; description?: string }, isSupabaseAuth: boolean = false): Promise<void> {
     if (!this.clientId) {
       throw new Error('Spotify Client ID is not configured');
     }
@@ -112,30 +117,61 @@ export class SpotifyService {
         state,
         provider: 'spotify',
         timestamp: Date.now(),
-        returnTo: window.location.pathname, // Store current path
+        returnTo: window.location.pathname,
+        isSupabaseAuth,
         ...(exportDetails && {
           playlistId: exportDetails.playlistId,
           isPublic: exportDetails.isPublic,
           description: exportDetails.description
         })
       };
-      sessionStorage.setItem('spotify_auth_state', JSON.stringify(stateData));
+
+      // Try sessionStorage first, fallback to localStorage
+      try {
+        sessionStorage.setItem('spotify_auth_state', JSON.stringify(stateData));
+      } catch (e) {
+        console.warn('SessionStorage failed, falling back to localStorage:', e);
+        try {
+          localStorage.setItem('spotify_auth_state', JSON.stringify(stateData));
+        } catch (e2) {
+          console.error('Both sessionStorage and localStorage failed:', e2);
+        }
+      }
 
       const params = new URLSearchParams({
         client_id: this.clientId,
         response_type: 'code',
-        redirect_uri: this.redirectUri,
+        redirect_uri: this.getRedirectUri(isSupabaseAuth),
         state,
         scope: this.scopes.join(' '),
-        provider: 'spotify' // Add provider parameter
+        provider: 'spotify'
       });
 
       const authUrl = `https://accounts.spotify.com/authorize?${params.toString()}`;
       console.log('Initiating Spotify authorization...', {
-        redirectUri: this.redirectUri,
+        redirectUri: this.getRedirectUri(isSupabaseAuth),
         scopes: this.scopes,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        state,
+        storedStateData: stateData,
+        fullAuthUrl: authUrl,
+        origin: window.location.origin,
+        currentPath: window.location.pathname
       });
+
+      // Verify sessionStorage is working
+      const testKey = 'spotify_storage_test';
+      try {
+        sessionStorage.setItem(testKey, 'test');
+        const testValue = sessionStorage.getItem(testKey);
+        sessionStorage.removeItem(testKey);
+        console.log('SessionStorage test:', {
+          working: testValue === 'test',
+          spotify_auth_state: sessionStorage.getItem('spotify_auth_state')
+        });
+      } catch (e) {
+        console.error('SessionStorage test failed:', e);
+      }
 
       window.location.href = authUrl;
     } catch (error) {
@@ -153,27 +189,47 @@ export class SpotifyService {
    */
   async handleCallback(code: string, state: string): Promise<boolean> {
     try {
-      // Retrieve and validate stored state
-      const storedStateData = sessionStorage.getItem('spotify_auth_state');
-      if (!storedStateData) {
-        throw new Error('No authentication state found');
-      }
+      // For Supabase auth flow, we use a special state
+      const isSupabaseAuth = state === 'supabase-auth';
+      
+      if (!isSupabaseAuth) {
+        // Regular Spotify integration flow
+        const storedStateData = sessionStorage.getItem('spotify_auth_state') || localStorage.getItem('spotify_auth_state');
+        if (!storedStateData) {
+          console.error('No authentication state found', {
+            sessionState: sessionStorage.getItem('spotify_auth_state'),
+            localState: localStorage.getItem('spotify_auth_state'),
+            currentUrl: window.location.href
+          });
+          throw new Error('No authentication state found');
+        }
 
-      const stateData = JSON.parse(storedStateData);
-      if (state !== stateData.state) {
-        throw new Error('State mismatch in OAuth callback');
-      }
-
-      // Check for state expiration (30 minutes)
-      const stateAge = Date.now() - stateData.timestamp;
-      if (stateAge > 30 * 60 * 1000) {
-        throw new Error('Authentication state has expired');
+        const stateData = JSON.parse(storedStateData);
+        if (state !== stateData.state) {
+          console.error('State mismatch', {
+            expectedState: stateData.state,
+            receivedState: state,
+            stateData
+          });
+          throw new Error('State mismatch in OAuth callback');
+        }
       }
 
       console.log('Processing Spotify callback...', {
         timestamp: new Date().toISOString(),
-        stateAge: Math.round(stateAge / 1000) + 's'
+        isSupabaseAuth,
+        hasCode: !!code,
+        redirectUri: this.getRedirectUri(isSupabaseAuth)
       });
+
+      // Verify we have the required credentials
+      if (!this.clientId || !this.clientSecret) {
+        console.error('Missing Spotify credentials', {
+          hasClientId: !!this.clientId,
+          hasClientSecret: !!this.clientSecret
+        });
+        throw new Error('Spotify credentials are not configured');
+      }
 
       const response = await fetch('https://accounts.spotify.com/api/token', {
         method: 'POST',
@@ -184,7 +240,7 @@ export class SpotifyService {
         body: new URLSearchParams({
           grant_type: 'authorization_code',
           code,
-          redirect_uri: this.redirectUri,
+          redirect_uri: this.getRedirectUri(isSupabaseAuth),
         }),
       });
 
@@ -193,7 +249,11 @@ export class SpotifyService {
         console.error('Spotify token exchange failed:', {
           status: response.status,
           statusText: response.statusText,
-          error: errorData
+          error: errorData,
+          redirectUri: this.getRedirectUri(isSupabaseAuth),
+          hasCode: !!code,
+          hasClientId: !!this.clientId,
+          hasClientSecret: !!this.clientSecret
         });
         throw new Error(
           `Token exchange failed: ${errorData.error_description || errorData.error || response.statusText}`
@@ -201,11 +261,45 @@ export class SpotifyService {
       }
 
       const data = await response.json();
+      
+      // Validate the token response
+      if (!data.access_token || !data.refresh_token) {
+        console.error('Invalid token response', {
+          hasAccessToken: !!data.access_token,
+          hasRefreshToken: !!data.refresh_token,
+          responseData: data
+        });
+        throw new Error('Invalid token response from Spotify');
+      }
+
       this.tokens = {
         access_token: data.access_token,
         refresh_token: data.refresh_token,
         expires_at: Date.now() + data.expires_in * 1000,
       };
+
+      // Get current user info to verify tokens work
+      try {
+        const userResponse = await fetch('https://api.spotify.com/v1/me', {
+          headers: {
+            'Authorization': `Bearer ${this.tokens.access_token}`
+          }
+        });
+        
+        if (!userResponse.ok) {
+          throw new Error('Failed to verify Spotify tokens');
+        }
+        
+        const userData = await userResponse.json();
+        console.log('Spotify user verification successful:', {
+          id: userData.id,
+          email: userData.email,
+          timestamp: new Date().toISOString()
+        });
+      } catch (verifyError) {
+        console.error('Token verification failed:', verifyError);
+        throw new Error('Failed to verify Spotify access');
+      }
 
       // Store tokens in Supabase
       const { error: updateError } = await supabase.auth.updateUser({
@@ -216,17 +310,23 @@ export class SpotifyService {
         },
       });
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Failed to update Spotify tokens in Supabase:', updateError);
+        throw updateError;
+      }
 
-      // Clear auth state
-      sessionStorage.removeItem('spotify_auth_state');
+      // Clear auth state if not Supabase auth
+      if (!isSupabaseAuth) {
+        sessionStorage.removeItem('spotify_auth_state');
+        localStorage.removeItem('spotify_auth_state');
+      }
 
       console.log('Spotify integration completed successfully');
       return true;
     } catch (error) {
       console.error('Error handling Spotify callback:', error);
-      // Clear auth state on error
-      sessionStorage.removeItem('spotify_auth_state');
+      // Clear tokens on error
+      this.tokens = null;
       return false;
     }
   }

@@ -12,22 +12,125 @@ export function AuthCallback() {
   useEffect(() => {
     const handleCallback = async () => {
       try {
+        // Enhanced logging
+        console.log('Starting auth callback handling...', {
+          timestamp: new Date().toISOString(),
+          url: window.location.href,
+          params: Object.fromEntries(searchParams.entries()),
+          hasLocalState: !!localStorage.getItem('spotify_auth_state'),
+          hasSessionState: !!sessionStorage.getItem('spotify_auth_state'),
+          hasAuthRedirect: !!localStorage.getItem('auth_redirect')
+        });
+
+        // Log all search parameters for debugging
+        console.log('Auth callback received:', {
+          params: Object.fromEntries(searchParams.entries()),
+          url: window.location.href,
+          hasSession: !!(await supabase.auth.getSession()).data.session
+        });
+
+        // Clear any stale state that might cause loops
+        sessionStorage.removeItem('spotify_auth_state');
+        localStorage.removeItem('spotify_auth_state');
+
+        // First, check if this is a Supabase auth callback
+        const { data: { session }, error: supabaseError } = await supabase.auth.getSession();
+        
+        if (supabaseError) {
+          console.error('Supabase auth error:', {
+            error: supabaseError,
+            url: window.location.href,
+            params: Object.fromEntries(searchParams.entries())
+          });
+          throw supabaseError;
+        }
+
+        // If we have a session, handle Spotify token exchange if needed
+        if (session) {
+          // Enhanced session logging
+          console.log('Session details:', {
+            timestamp: new Date().toISOString(),
+            provider: session.user?.app_metadata?.provider,
+            userId: session.user?.id,
+            hasSpotifyTokens: !!session.user?.user_metadata?.spotify_tokens,
+            hasAccessToken: !!session.access_token,
+            metadata: session.user?.user_metadata,
+            appMetadata: session.user?.app_metadata
+          });
+
+          // If this was a Spotify auth and we don't have tokens, we need to exchange the code
+          if (session.user?.app_metadata?.provider === 'spotify') {
+            const code = searchParams.get('code');
+            
+            if (code && !session.user?.user_metadata?.spotify_tokens) {
+              console.log('Initiating Spotify token exchange...');
+              
+              try {
+                // Exchange the code for tokens
+                const spotifyService = SpotifyService.getInstance();
+                const success = await spotifyService.handleCallback(code, 'supabase-auth');
+                
+                if (!success) {
+                  // If token exchange fails, sign out and redirect to login
+                  await supabase.auth.signOut();
+                  throw new Error('Failed to exchange Spotify tokens. Please try logging in again.');
+                }
+
+                // Refresh the session to get the updated tokens
+                const { error: refreshError } = await supabase.auth.refreshSession();
+                if (refreshError) {
+                  // If session refresh fails, sign out and redirect to login
+                  await supabase.auth.signOut();
+                  throw refreshError;
+                }
+
+                console.log('Spotify token exchange completed successfully');
+              } catch (tokenError) {
+                console.error('Token exchange failed:', tokenError);
+                // Sign out and redirect to login with error message
+                await supabase.auth.signOut();
+                throw new Error('Failed to complete Spotify authentication. Please try again.');
+              }
+            }
+          }
+
+          // Get the return URL from localStorage if it exists
+          const returnTo = localStorage.getItem('auth_redirect') || '/';
+          localStorage.removeItem('auth_redirect');
+          
+          // Navigate to the return URL
+          navigate(returnTo, { replace: true });
+          return;
+        }
+
+        // If no session, check for direct Spotify integration callback
         const code = searchParams.get('code');
         const state = searchParams.get('state');
         const error = searchParams.get('error');
+        const error_description = searchParams.get('error_description');
 
-        // Check for Spotify-specific error
         if (error) {
-          throw new Error(`Spotify authorization error: ${error}`);
+          console.error('Spotify OAuth Error:', {
+            error,
+            error_description,
+            state,
+            hasCode: !!code,
+            hasStoredState: !!sessionStorage.getItem('spotify_auth_state'),
+            currentUrl: window.location.href,
+            searchParams: Object.fromEntries(searchParams.entries())
+          });
+          throw new Error(`Spotify authorization error: ${error}${error_description ? ` - ${error_description}` : ''}`);
         }
 
-        // Try to get stored state data
-        const storedStateData = sessionStorage.getItem('spotify_auth_state');
-        
-        if (storedStateData) {
-          // This is a Spotify callback
-          if (!code || !state) {
-            throw new Error('Missing required Spotify authorization parameters');
+        // Handle direct Spotify integration
+        if (code && state) {
+          let storedStateData = sessionStorage.getItem('spotify_auth_state');
+          if (!storedStateData) {
+            storedStateData = localStorage.getItem('spotify_auth_state');
+          }
+
+          if (!storedStateData) {
+            throw new Error('No stored state found for Spotify integration');
           }
 
           const stateData = JSON.parse(storedStateData);
@@ -38,7 +141,11 @@ export function AuthCallback() {
             throw new Error('Failed to complete Spotify integration');
           }
 
-          // If we have a playlistId in state, continue with export
+          // Clean up storage
+          sessionStorage.removeItem('spotify_auth_state');
+          localStorage.removeItem('spotify_auth_state');
+
+          // Handle playlist export if needed
           if (stateData.playlistId) {
             const exportService = PlaylistExportService.getInstance();
             const result = await exportService.exportPlaylist(
@@ -52,41 +159,20 @@ export function AuthCallback() {
             );
 
             if (result.success) {
-              // Navigate back to playlist with success message
               navigate(`/playlist/${stateData.playlistId}?export=success&url=${encodeURIComponent(result.url)}`, { replace: true });
               return;
             }
           }
 
-          // Return to the original page or default to settings
-          const returnTo = stateData.returnTo || '/settings';
-          navigate(returnTo, { replace: true });
+          navigate(stateData.returnTo || '/settings', { replace: true });
           return;
         }
 
-        // Handle Supabase auth callback
-        const { data: { session }, error: supabaseError } = await supabase.auth.getSession();
-        if (supabaseError) throw supabaseError;
-
-        if (session) {
-          // Check if user already has Spotify connected
-          const { data: { user } } = await supabase.auth.getUser();
-          const hasSpotifyTokens = user?.user_metadata?.spotify_tokens;
-
-          if (!hasSpotifyTokens) {
-            // Automatically initiate Spotify connection
-            const spotifyService = SpotifyService.getInstance();
-            await spotifyService.authorize();
-            return;
-          }
-        }
-        
-        // Default navigation for Supabase auth
-        navigate('/', { replace: true });
+        // If we get here without handling any callback, something went wrong
+        throw new Error('Invalid authentication state');
       } catch (err) {
         console.error('Error in auth callback:', err);
         setError(err instanceof Error ? err.message : 'Authentication failed');
-        // Delay navigation to show error
         setTimeout(() => {
           navigate('/settings', { replace: true });
         }, 3000);

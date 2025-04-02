@@ -116,17 +116,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const signInWithProvider = async (provider: Provider) => {
+    localStorage.setItem('auth_redirect', window.location.pathname);
+    
+    // Get the current origin for the redirect URL
+    const origin = window.location.origin;
+    const redirectUrl = `${origin}/auth/callback`;
+    
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: redirectUrl,
         scopes: provider === 'spotify' 
           ? 'playlist-modify-public playlist-modify-private user-read-private user-read-email'
           : provider === 'google'
           ? 'https://www.googleapis.com/auth/youtube.force-ssl'
           : undefined,
+        queryParams: provider === 'spotify' ? {
+          show_dialog: 'true',
+          response_type: 'code'
+        } : undefined
       },
     });
+
+    if (error) {
+      console.error('Provider sign in error:', {
+        provider,
+        error,
+        redirectUrl,
+        currentUrl: window.location.href
+      });
+      // Clear any stale state that might cause loops
+      sessionStorage.removeItem('spotify_auth_state');
+      localStorage.removeItem('spotify_auth_state');
+    }
+
     return { error };
   };
 
