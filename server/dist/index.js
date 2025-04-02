@@ -45,6 +45,49 @@ const authenticateUser = async (req, res, next) => {
         res.status(401).json({ error: 'Authentication failed' });
     }
 };
+// Root route handler
+app.get('/', (req, res) => {
+    res.json({
+        status: 'ok',
+        message: 'SmartPlaylist API is running',
+        version: '1.0.0',
+        endpoints: [
+            {
+                path: '/api/playlist/generate',
+                method: 'POST',
+                description: 'Generate a playlist based on a prompt',
+                requiresAuth: true
+            },
+            {
+                path: '/api/audio/analyze',
+                method: 'POST',
+                description: 'Analyze audio features',
+                requiresAuth: true
+            }
+        ]
+    });
+});
+// Development testing endpoint - NOT FOR PRODUCTION
+if (process.env.NODE_ENV === 'development') {
+    app.get('/api/playlist/generate', (req, res) => {
+        res.json({
+            message: 'This endpoint only accepts POST requests',
+            howToUse: {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer YOUR_SUPABASE_TOKEN'
+                },
+                body: {
+                    prompt: 'Your playlist generation prompt',
+                    options: {
+                    // Optional configuration
+                    }
+                }
+            }
+        });
+    });
+}
 // Playlist generation endpoint
 app.post('/api/playlist/generate', authenticateUser, async (req, res) => {
     try {
