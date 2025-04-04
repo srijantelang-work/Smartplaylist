@@ -1,138 +1,188 @@
 # SmartPlaylist 🎵
 
-An AI-powered music playlist generator that creates personalized playlists based on your preferences, moods, and musical tastes.
-
-![SmartPlaylist Demo](https://via.placeholder.com/800x400?text=SmartPlaylist+Demo)
+An AI-powered playlist generation application that creates personalized music playlists based on natural language prompts.
 
 ## 🌟 Features
 
-- **AI-Powered Recommendations**: Generate personalized playlists using Groq's advanced AI models
-- **Intelligent Curation**: Create playlists based on mood, genre, activity, or any text prompt
-- **User Profiles**: Save preferences and favorite genres for better recommendations
-- **Playlist Management**: Create, edit, save, and share your playlists
-- **Responsive Design**: Works seamlessly across desktop and mobile devices
-- **Secure Authentication**: User authentication powered by Supabase
-- **Modern UI**: Beautiful interface built with React and Tailwind CSS
+- **AI-Powered Playlist Generation**: Create custom playlists using natural language prompts
+- **Audio Analysis**: Get detailed audio feature analysis for songs
+- **Supabase Integration**: Secure authentication and data storage
+- **Modern UI**: Beautiful, responsive interface built with React and Tailwind CSS
+- **Spotify Integration**: Export playlists to Spotify (coming soon)
 
-## 🚀 Live Demo
+## 🚀 Getting Started
 
-Check out the live application: [SmartPlaylist](https://smartplaylist.vercel.app/)
+### Prerequisites
 
-## 🛠️ Technology Stack
-
-- **Frontend**: React 19 with TypeScript
-- **Build Tool**: Vite 6
-- **Styling**: Tailwind CSS with custom theming
-- **State Management**: React Query
-- **Backend & Auth**: Supabase (PostgreSQL + Auth)
-- **AI Integration**: Groq API
-- **Deployment**: Vercel
-- **UI Components**: Material UI
-- **Drag & Drop**: React DnD
-- **Data Visualization**: Recharts
-- **Testing**: Jest, React Testing Library, Playwright
-
-## 📋 Prerequisites
-
-- Node.js (v18 or higher)
-- npm (v8 or higher)
+- Node.js (v16 or higher)
+- npm or yarn
 - Supabase account
 - Groq API key
 
-## 🔧 Installation & Setup
+### Installation
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/smartplaylist.git
-   cd smartplaylist
-   ```
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/smartplaylist.git
+cd smartplaylist
+```
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+2. Install dependencies:
+```bash
+# Install frontend dependencies
+npm install
 
-3. **Environment Setup**
-   
-   Create a `.env` file in the root directory with the following variables:
-   ```
-   # Supabase Configuration
-   VITE_SUPABASE_URL=your-supabase-project-url
-   VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
-   
-   # Groq Configuration
-   VITE_GROQ_API_KEY=your-groq-api-key
-   
-   # Application URL
-   VITE_APP_URL=http://localhost:5173
-   ```
+# Install backend dependencies
+cd server
+npm install
+```
 
-4. **Start the development server**
-   ```bash
-   npm run dev
-   ```
+3. Environment Setup:
 
-5. **Open your browser**
-   
-   Navigate to `http://localhost:5173` to see the application running.
+Create a `.env` file in the root directory:
+```env
+# Frontend Environment Variables
+VITE_SUPABASE_URL=your-supabase-project-url
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+VITE_APP_URL=http://localhost:5173
+VITE_API_URL=http://localhost:3001
 
-## 📁 Project Structure
+# Optional Feature Flags
+VITE_ENABLE_SPOTIFY_INTEGRATION=false
+VITE_ENABLE_YOUTUBE_INTEGRATION=false
+```
+
+Create a `.env` file in the server directory:
+```env
+PORT=3001
+NODE_ENV=development
+GROQ_API_KEY=your-groq-api-key
+FRONTEND_URL=http://localhost:5173
+VITE_SUPABASE_URL=your-supabase-project-url
+VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
+
+4. Start the development servers:
+
+```bash
+# Start frontend (from root directory)
+npm run dev
+
+# Start backend (from server directory)
+npm run dev
+```
+
+5. Open your browser and navigate to `http://localhost:5173`
+
+## 🏗️ Project Structure
 
 ```
 smartplaylist/
-├── src/               # Source code
-│   ├── components/    # Reusable UI components
+├── src/                # Frontend source code
+│   ├── components/     # Reusable UI components
 │   ├── pages/         # Page components
-│   ├── lib/           # Utility functions and API clients
+│   ├── services/      # API and service integrations
+│   ├── contexts/      # React contexts
 │   ├── hooks/         # Custom React hooks
 │   ├── types/         # TypeScript type definitions
-│   ├── styles/        # Global styles and theme configuration
-│   ├── App.tsx        # Main application component
-│   └── main.tsx       # Application entry point
+│   ├── lib/           # Utility functions
+│   └── styles/        # Global styles
+├── server/            # Backend source code
+│   ├── index.ts       # Main server file
+│   └── types/         # Backend type definitions
 ├── public/            # Static assets
-├── dist/              # Build output (generated)
-├── .vercel/           # Vercel configuration
-├── supabase/          # Supabase configuration and migrations
-├── tests/             # Test files
-└── ... config files   # Various configuration files
+└── docs/             # Additional documentation
 ```
+
+## 🔧 API Endpoints
+
+### Playlist Generation
+- **POST** `/api/playlist/generate`
+  - Generates a playlist based on a text prompt
+  - Requires authentication
+  - Request body:
+    ```json
+    {
+      "prompt": "Create a relaxing jazz playlist",
+      "options": {
+        "temperature": 0.7,
+        "maxTokens": 4000
+      }
+    }
+    ```
+
+### Audio Analysis
+- **POST** `/api/audio/analyze`
+  - Analyzes audio features of a song
+  - Requires authentication
+  - Request body:
+    ```json
+    {
+      "audioUrl": "https://example.com/song.mp3"
+    }
+    ```
+
+## 🛠️ Technology Stack
+
+- **Frontend**:
+  - React 18
+  - TypeScript
+  - Vite
+  - Tailwind CSS
+  - React Query
+  - React Router
+  - Framer Motion
+
+- **Backend**:
+  - Node.js
+  - Express
+  - TypeScript
+  - Groq SDK (llama-3.3-70b-versatile model)
+  - Supabase
+
+- **Infrastructure**:
+  - Vercel (Frontend & Backend deployment)
+  - Supabase (Authentication & Database)
+
+## 🔐 Security
+
+- JWT-based authentication using Supabase
+- CORS configuration with whitelisted origins
+- Content Security Policy (CSP) headers
+- Rate limiting on API endpoints
+- Secure environment variable handling
 
 ## 🚢 Deployment
 
-The application is configured for deployment on Vercel. See [DEPLOYMENT.md](./smartplaylist/DEPLOYMENT.md) for detailed deployment instructions.
+### Frontend Deployment (Vercel)
 
-### Quick Deployment Steps:
+1. Push your code to GitHub
+2. Import your repository in Vercel
+3. Configure environment variables
+4. Deploy
 
-1. **Install Vercel CLI**
-   ```bash
-   npm install -g vercel
-   ```
+### Backend Deployment (Vercel)
 
-2. **Login to Vercel**
-   ```bash
-   vercel login
-   ```
-
-3. **Deploy**
-   ```bash
-   vercel
-   ```
+1. Ensure `vercel.json` is properly configured
+2. Set up environment variables in Vercel dashboard
+3. Deploy using Vercel CLI:
+```bash
+cd server
+vercel
+```
 
 ## 🧪 Testing
 
-Run the test suite:
-
 ```bash
-# Unit and integration tests
+# Run frontend tests
 npm test
 
-# End-to-end tests
-npm run test:e2e
+# Run backend tests
+cd server
+npm test
 ```
 
-## 🤝 Contributing
-
-Contributions are welcome! Please check out our [contributing guidelines](./smartplaylist/CONTRIBUTING.md).
+## 📝 Contributing
 
 1. Fork the repository
 2. Create your feature branch (`git checkout -b feature/amazing-feature`)
@@ -140,26 +190,17 @@ Contributions are welcome! Please check out our [contributing guidelines](./smar
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📝 License
+## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](./smartplaylist/LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🔮 Roadmap
+## 👥 Authors
 
-See our [ROADMAP.md](./ROADMAP.md) for planned features and improvements.
+- Your Name - Initial work - [YourGitHub](https://github.com/yourusername)
 
 ## 🙏 Acknowledgments
 
 - [Groq](https://groq.com) for AI capabilities
 - [Supabase](https://supabase.com) for backend infrastructure
-- [React](https://reactjs.org) and [Vite](https://vitejs.dev) teams
-- [Tailwind CSS](https://tailwindcss.com) team
-- All open-source contributors
-
-## 📧 Contact
-
-For questions or support, please open an issue on this repository or contact the maintainers.
-
----
-
-<p align="center">Made with ❤️ by the SmartPlaylist team</p> 
+- [Vercel](https://vercel.com) for hosting
+- All contributors and supporters 
