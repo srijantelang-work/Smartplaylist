@@ -1,11 +1,11 @@
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   // Load env file based on mode
-  const env = loadEnv(mode, process.cwd(), '')
+  const isProd = mode === 'production'
 
   return {
     plugins: [react()],
@@ -18,7 +18,7 @@ export default defineConfig(({ mode }) => {
       host: true,
     },
     build: {
-      sourcemap: mode !== 'production',
+      sourcemap: !isProd,
       rollupOptions: {
         output: {
           manualChunks: {
@@ -26,20 +26,30 @@ export default defineConfig(({ mode }) => {
             supabase: ['@supabase/supabase-js'],
             groq: ['groq-sdk'],
           },
-          // Ensure proper module format
+          // Ensure proper module format and extensions
           format: 'es',
-          // Ensure proper file extensions and asset handling
-          entryFileNames: 'assets/[name].[hash].js',
-          chunkFileNames: 'assets/[name].[hash].js',
-          assetFileNames: 'assets/[name].[hash].[ext]'
+          entryFileNames: 'assets/[name].[hash].mjs',
+          chunkFileNames: 'assets/[name].[hash].mjs',
+          assetFileNames: ({ name = '' }) => {
+            if (/\.(gif|jpe?g|png|svg|webp)$/.test(name)) {
+              return 'assets/images/[name].[hash][extname]'
+            }
+            if (/\.(woff2?|ttf|otf|eot)$/.test(name)) {
+              return 'assets/fonts/[name].[hash][extname]'
+            }
+            if (/\.css$/.test(name)) {
+              return 'assets/styles/[name].[hash][extname]'
+            }
+            return 'assets/[name].[hash][extname]'
+          }
         },
       },
       // Ensure assets are copied correctly
       assetsInlineLimit: 4096,
       emptyOutDir: true,
-      // Add CSP headers
-      target: 'esnext',
-      cssTarget: 'chrome61',
+      // Modern browser targets
+      target: ['es2020', 'edge88', 'firefox78', 'chrome87', 'safari14'],
+      cssTarget: ['chrome87', 'safari14'],
     },
     // Resolve path aliases
     resolve: {
