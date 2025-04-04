@@ -153,13 +153,19 @@ export function HomePage() {
           <h2 className="text-4xl font-bold text-center mb-16">
             How It <span className="text-[#1DB954]">Works</span>
           </h2>
-          <div className="grid md:grid-cols-5 gap-8">
+          <div className="max-w-4xl mx-auto space-y-16">
             {steps.map((step, index) => (
-              <div key={index} className="text-center flex flex-col items-center">
-                <div className="w-16 h-16 rounded-full bg-[#1DB954] flex items-center justify-center mx-auto mb-6 text-2xl font-bold">
-                  {index + 1}
+              <div key={index} className="flex flex-col items-center">
+                <div className="flex items-center gap-8 w-full">
+                  <div className="w-20 h-20 rounded-full bg-[#1DB954] flex items-center justify-center text-3xl font-bold flex-shrink-0">
+                    {index + 1}
+                  </div>
+                  <div className="flex-grow">
+                    <h3 className="text-2xl font-semibold mb-3">{step.title}</h3>
+                    <p className="text-[#E8E8E8] text-lg">{step.description}</p>
+                  </div>
                 </div>
-                <div className="relative w-full aspect-[16/9] mb-6 rounded-lg overflow-hidden shadow-xl">
+                <div className="relative w-full aspect-[16/9] mt-8 rounded-lg overflow-hidden shadow-2xl">
                   <img
                     src={step.image}
                     alt={step.title}
@@ -167,8 +173,6 @@ export function HomePage() {
                   />
                   <div className="absolute inset-0 bg-black/20 pointer-events-none"></div>
                 </div>
-                <h3 className="text-xl font-semibold mb-3">{step.title}</h3>
-                <p className="text-[#E8E8E8]">{step.description}</p>
               </div>
             ))}
           </div>
@@ -245,6 +249,7 @@ const steps = [
     description: 'Create your account and set your music preferences',
     image: '/loginpage.jpeg'
   },
+  
   {
     title: 'Explore Homepage',
     description: 'Browse through our features and discover what we offer',
@@ -262,7 +267,7 @@ const steps = [
   },
   {
     title: 'Export & Share',
-    description: 'Export to your favorite platform and share with friends',
+    description: 'Export to Spotify and share with friends (YouTube export coming soon!)',
     image: '/export.jpeg'
   }
 ];
