@@ -12,6 +12,9 @@ import { Navbar } from './components/navigation/Navbar';
 import { SettingsPage } from './pages/settings/SettingsPage';
 import { HomePage } from './pages/home/HomePage';
 import { MyPlaylistsPage } from './pages/my-playlists/MyPlaylistsPage';
+import { Footer } from './components/layout/Footer';
+import { PrivacyPolicy } from './pages/legal/PrivacyPolicy';
+import { TermsAndConditions } from './pages/legal/TermsAndConditions';
 
 // Simple NotFound component
 const NotFound = () => (
@@ -29,22 +32,27 @@ function App() {
     <Router>
       <AuthProvider>
         <AppProvider>
-          <div className="min-h-screen bg-[var(--dark-background)]">
+          <div className="min-h-screen bg-[var(--dark-background)] flex flex-col">
             <Navbar />
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/auth" element={<AuthPage />}>
-                <Route path="login" element={<LoginPage />} />
-                <Route path="signup" element={<SignupPage />} />
-              </Route>
-              <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/create-playlist" element={<CreatePlaylistPage />} />
-              <Route path="/playlist-result/:id" element={<PlaylistResultPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/my-playlists" element={<MyPlaylistsPage />} />
-              {/* Add catch-all route for 404 errors */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <div className="flex-grow">
+              <Routes>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/auth" element={<AuthPage />}>
+                  <Route path="login" element={<LoginPage />} />
+                  <Route path="signup" element={<SignupPage />} />
+                </Route>
+                <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="/create-playlist" element={<CreatePlaylistPage />} />
+                <Route path="/playlist-result/:id" element={<PlaylistResultPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/my-playlists" element={<MyPlaylistsPage />} />
+                <Route path="/privacy" element={<PrivacyPolicy />} />
+                <Route path="/terms" element={<TermsAndConditions />} />
+                {/* Add catch-all route for 404 errors */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </div>
+            <Footer />
           </div>
         </AppProvider>
       </AuthProvider>

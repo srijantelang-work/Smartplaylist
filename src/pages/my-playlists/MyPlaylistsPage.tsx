@@ -106,7 +106,7 @@ export function MyPlaylistsPage() {
   }
 
   return (
-    <div className="min-h-screen relative">
+    <div className="min-h-screen bg-black pt-20">
       {/* Background with overlay */}
       <div className="fixed inset-0 z-0">
         <div className="absolute inset-0 bg-[url('/playlist-wallpaper.jpg')] bg-cover bg-center bg-no-repeat opacity-40" />

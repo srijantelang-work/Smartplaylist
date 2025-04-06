@@ -81,7 +81,7 @@ export function PlaylistResultPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[var(--dark-bg)] via-[var(--dark-surface)] to-[var(--dark-bg)]">
+    <div className="min-h-screen bg-gradient-to-b from-[var(--dark-bg)] via-[var(--dark-surface)] to-[var(--dark-bg)] pt-20">
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="space-y-8">
           {/* Header */}
