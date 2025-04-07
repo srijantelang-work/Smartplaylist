@@ -44,12 +44,15 @@
       "src": "/(.*)",
       "dest": "/index.html",
       "headers": {
-        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https://*.vercel.app https://*.vercel.live https://*.supabase.co wss://*.supabase.co https://smartplaylist-backend.vercel.app; frame-src 'self' https://*.vercel.app;",
+        "content-security-policy": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https://*.vercel.app https://*.vercel.live https://*.supabase.co wss://*.supabase.co https://smartplaylist-backend.vercel.app https://mdpavdpfxubuoxmzhrvw.supabase.co; frame-src 'self' https://*.vercel.app;",
         "x-content-type-options": "nosniff",
         "x-frame-options": "DENY",
         "x-xss-protection": "1; mode=block",
         "referrer-policy": "strict-origin-when-cross-origin",
-        "permissions-policy": "camera=(), microphone=(), geolocation=()"
+        "permissions-policy": "camera=(), microphone=(), geolocation=()",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+        "Access-Control-Allow-Headers": "X-Requested-With, Content-Type, Authorization"
       }
     }
   ]
