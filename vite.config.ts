@@ -9,6 +9,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    base: '/',
     define: {
       __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
     },
@@ -26,10 +27,10 @@ export default defineConfig(({ mode }) => {
             supabase: ['@supabase/supabase-js'],
             groq: ['groq-sdk'],
           },
-          // Ensure proper module format and extensions
+          // Using .js extension instead of .mjs
           format: 'es',
-          entryFileNames: 'assets/[name].[hash].mjs',
-          chunkFileNames: 'assets/[name].[hash].mjs',
+          entryFileNames: 'assets/[name].[hash].js',
+          chunkFileNames: 'assets/[name].[hash].js',
           assetFileNames: ({ name = '' }) => {
             if (/\.(gif|jpe?g|png|svg|webp)$/.test(name)) {
               return 'assets/images/[name].[hash][extname]'
