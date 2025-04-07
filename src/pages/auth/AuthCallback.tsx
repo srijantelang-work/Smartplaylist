@@ -19,8 +19,19 @@ export function AuthCallback() {
           params: Object.fromEntries(searchParams.entries()),
           hasLocalState: !!localStorage.getItem('spotify_auth_state'),
           hasSessionState: !!sessionStorage.getItem('spotify_auth_state'),
-          hasAuthRedirect: !!localStorage.getItem('auth_redirect')
+          hasAuthRedirect: !!localStorage.getItem('auth_redirect'),
+          expectedRedirect: sessionStorage.getItem('expected_redirect')
         });
+
+        // Verify we're on the expected callback URL
+        const expectedRedirect = sessionStorage.getItem('expected_redirect');
+        if (expectedRedirect && !window.location.href.startsWith(expectedRedirect)) {
+          console.error('Redirect URL mismatch:', {
+            expected: expectedRedirect,
+            actual: window.location.href
+          });
+          throw new Error('Invalid redirect URL');
+        }
 
         // Wait briefly to ensure Supabase has processed the OAuth callback
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -60,7 +71,7 @@ export function AuthCallback() {
               try {
                 // Exchange the code for tokens
                 const spotifyService = SpotifyService.getInstance();
-                const success = await spotifyService.handleCallback(code, 'supabase-auth');
+                const success = await spotifyService.handleCallback(code, searchParams.get('state') || 'supabase-auth');
                 
                 if (!success) {
                   // If token exchange fails, sign out and redirect to login
@@ -82,6 +93,11 @@ export function AuthCallback() {
                   throw new Error('Session refresh failed');
                 }
 
+                // Verify Spotify tokens are present
+                if (!refreshedSession.user?.user_metadata?.spotify_tokens) {
+                  throw new Error('Spotify tokens not found after refresh');
+                }
+
                 console.log('Spotify token exchange completed successfully');
               } catch (tokenError) {
                 console.error('Token exchange failed:', tokenError);
@@ -99,12 +115,16 @@ export function AuthCallback() {
           localStorage.removeItem('auth_redirect');
           sessionStorage.removeItem('spotify_auth_state');
           localStorage.removeItem('spotify_auth_state');
+          sessionStorage.removeItem('expected_redirect');
           
           // Ensure we still have a valid session before redirecting
           const { data: { session: finalSession } } = await supabase.auth.getSession();
           if (!finalSession) {
             throw new Error('Session lost during callback processing');
           }
+
+          // Force a small delay before redirect to ensure state is saved
+          await new Promise(resolve => setTimeout(resolve, 500));
 
           // Navigate to the return URL
           console.log('Auth callback successful, redirecting to:', returnTo);

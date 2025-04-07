@@ -116,41 +116,72 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const signInWithProvider = async (provider: Provider) => {
-    localStorage.setItem('auth_redirect', window.location.pathname);
-    
-    // Get the current origin for the redirect URL
-    const origin = window.location.origin;
-    const redirectUrl = `${origin}/auth/callback`;
-    
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: redirectUrl,
-        scopes: provider === 'spotify' 
-          ? 'playlist-modify-public playlist-modify-private user-read-private user-read-email'
-          : provider === 'google'
-          ? 'https://www.googleapis.com/auth/youtube.force-ssl'
-          : undefined,
-        queryParams: provider === 'spotify' ? {
-          show_dialog: 'true',
-          response_type: 'code'
-        } : undefined
-      },
-    });
-
-    if (error) {
-      console.error('Provider sign in error:', {
-        provider,
-        error,
-        redirectUrl,
-        currentUrl: window.location.href
-      });
-      // Clear any stale state that might cause loops
+    try {
+      // Store current path for redirect
+      const currentPath = window.location.pathname;
+      localStorage.setItem('auth_redirect', currentPath);
+      
+      // Clear any existing auth states to prevent loops
       sessionStorage.removeItem('spotify_auth_state');
       localStorage.removeItem('spotify_auth_state');
-    }
+      
+      // Get the absolute URL for redirect
+      const origin = window.location.origin;
+      const redirectUrl = `${origin}/auth/callback`;
+      
+      // Store the redirect URL to verify later
+      sessionStorage.setItem('expected_redirect', redirectUrl);
+      
+      console.log('Initiating provider sign in:', {
+        provider,
+        redirectUrl,
+        currentPath,
+        origin,
+        timestamp: new Date().toISOString()
+      });
+      
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: redirectUrl,
+          scopes: provider === 'spotify' 
+            ? 'playlist-modify-public playlist-modify-private user-read-private user-read-email'
+            : provider === 'google'
+            ? 'https://www.googleapis.com/auth/youtube.force-ssl'
+            : undefined,
+          queryParams: provider === 'spotify' ? {
+            show_dialog: 'true',
+            response_type: 'code',
+            // Force new auth flow to prevent loops
+            state: `spotify-auth-${Date.now()}`,
+          } : undefined
+        },
+      });
 
-    return { error };
+      if (error) {
+        console.error('Provider sign in error:', {
+          provider,
+          error,
+          redirectUrl,
+          currentUrl: window.location.href,
+          timestamp: new Date().toISOString()
+        });
+        // Clear any stale state that might cause loops
+        sessionStorage.removeItem('spotify_auth_state');
+        localStorage.removeItem('spotify_auth_state');
+        sessionStorage.removeItem('expected_redirect');
+      }
+
+      return { error };
+    } catch (error) {
+      console.error('Unexpected error during provider sign in:', {
+        error,
+        provider,
+        currentUrl: window.location.href,
+        timestamp: new Date().toISOString()
+      });
+      return { error: error as AuthError };
+    }
   };
 
   const signOut = async () => {
