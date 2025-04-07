@@ -111,10 +111,6 @@ export class SpotifyService {
     }
 
     try {
-      // Clear any existing auth state before starting new flow
-      sessionStorage.removeItem('spotify_auth_state');
-      localStorage.removeItem('spotify_auth_state');
-
       // Generate and store state with additional metadata
       const state = crypto.randomUUID();
       const stateData = {
@@ -139,7 +135,6 @@ export class SpotifyService {
           localStorage.setItem('spotify_auth_state', JSON.stringify(stateData));
         } catch (e2) {
           console.error('Both sessionStorage and localStorage failed:', e2);
-          throw new Error('Failed to store authentication state');
         }
       }
 
@@ -149,7 +144,7 @@ export class SpotifyService {
         redirect_uri: this.getRedirectUri(isSupabaseAuth),
         state,
         scope: this.scopes.join(' '),
-        show_dialog: 'true' // Always show the Spotify auth dialog to prevent loops
+        provider: 'spotify'
       });
 
       const authUrl = `https://accounts.spotify.com/authorize?${params.toString()}`;
@@ -164,12 +159,23 @@ export class SpotifyService {
         currentPath: window.location.pathname
       });
 
+      // Verify sessionStorage is working
+      const testKey = 'spotify_storage_test';
+      try {
+        sessionStorage.setItem(testKey, 'test');
+        const testValue = sessionStorage.getItem(testKey);
+        sessionStorage.removeItem(testKey);
+        console.log('SessionStorage test:', {
+          working: testValue === 'test',
+          spotify_auth_state: sessionStorage.getItem('spotify_auth_state')
+        });
+      } catch (e) {
+        console.error('SessionStorage test failed:', e);
+      }
+
       window.location.href = authUrl;
     } catch (error) {
       console.error('Failed to initiate Spotify authorization:', error);
-      // Clean up any partial state
-      sessionStorage.removeItem('spotify_auth_state');
-      localStorage.removeItem('spotify_auth_state');
       throw new Error(
         error instanceof Error 
           ? `Spotify authorization failed: ${error.message}`
@@ -188,11 +194,7 @@ export class SpotifyService {
       
       if (!isSupabaseAuth) {
         // Regular Spotify integration flow
-        let storedStateData = sessionStorage.getItem('spotify_auth_state');
-        if (!storedStateData) {
-          storedStateData = localStorage.getItem('spotify_auth_state');
-        }
-        
+        const storedStateData = sessionStorage.getItem('spotify_auth_state') || localStorage.getItem('spotify_auth_state');
         if (!storedStateData) {
           console.error('No authentication state found', {
             sessionState: sessionStorage.getItem('spotify_auth_state'),
@@ -313,14 +315,18 @@ export class SpotifyService {
         throw updateError;
       }
 
+      // Clear auth state if not Supabase auth
+      if (!isSupabaseAuth) {
+        sessionStorage.removeItem('spotify_auth_state');
+        localStorage.removeItem('spotify_auth_state');
+      }
+
       console.log('Spotify integration completed successfully');
       return true;
     } catch (error) {
       console.error('Error handling Spotify callback:', error);
-      // Clear tokens and state on error
+      // Clear tokens on error
       this.tokens = null;
-      sessionStorage.removeItem('spotify_auth_state');
-      localStorage.removeItem('spotify_auth_state');
       return false;
     }
   }
