@@ -4,14 +4,30 @@
   "outputDirectory": "dist",
   "routes": [
     {
-      "src": "/assets/(.*)",
+      "src": "/assets/js/.*\\.js$",
+      "headers": {
+        "content-type": "application/javascript; charset=utf-8",
+        "cache-control": "public, max-age=31536000, immutable"
+      },
+      "continue": true
+    },
+    {
+      "src": "/assets/css/.*\\.css$",
+      "headers": {
+        "content-type": "text/css; charset=utf-8",
+        "cache-control": "public, max-age=31536000, immutable"
+      },
+      "continue": true
+    },
+    {
+      "src": "/assets/images/.*\\.(jpg|jpeg|png|gif|ico|svg|webp)$",
       "headers": {
         "cache-control": "public, max-age=31536000, immutable"
       },
       "continue": true
     },
     {
-      "src": "/(.*)\\.(?:js|css|json|xml|ico|png|jpg|jpeg|gif|svg|woff|woff2|ttf|otf|webp)",
+      "src": "/assets/fonts/.*\\.(woff|woff2|ttf|otf)$",
       "headers": {
         "cache-control": "public, max-age=31536000, immutable"
       },
@@ -19,6 +35,10 @@
     },
     {
       "handle": "filesystem"
+    },
+    {
+      "src": "/auth/callback",
+      "dest": "/index.html"
     },
     {
       "src": "/(.*)",

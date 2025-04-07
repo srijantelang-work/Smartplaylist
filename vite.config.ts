@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
-    base: './',
+    base: isProd ? '/' : './',
     define: {
       __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
     },
