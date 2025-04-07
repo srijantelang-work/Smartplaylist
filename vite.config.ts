@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
-    base: '/',
+    base: './',
     define: {
       __APP_VERSION__: JSON.stringify(process.env.npm_package_version),
     },
@@ -27,10 +27,9 @@ export default defineConfig(({ mode }) => {
             supabase: ['@supabase/supabase-js'],
             groq: ['groq-sdk'],
           },
-          // Using .js extension instead of .mjs
           format: 'es',
-          entryFileNames: 'assets/[name].[hash].js',
-          chunkFileNames: 'assets/[name].[hash].js',
+          entryFileNames: 'assets/js/[name].[hash].js',
+          chunkFileNames: 'assets/js/[name].[hash].js',
           assetFileNames: ({ name = '' }) => {
             if (/\.(gif|jpe?g|png|svg|webp)$/.test(name)) {
               return 'assets/images/[name].[hash][extname]'
@@ -39,20 +38,25 @@ export default defineConfig(({ mode }) => {
               return 'assets/fonts/[name].[hash][extname]'
             }
             if (/\.css$/.test(name)) {
-              return 'assets/styles/[name].[hash][extname]'
+              return 'assets/css/[name].[hash][extname]'
             }
             return 'assets/[name].[hash][extname]'
           }
         },
       },
-      // Ensure assets are copied correctly
       assetsInlineLimit: 4096,
       emptyOutDir: true,
-      // Modern browser targets
       target: ['es2020', 'edge88', 'firefox78', 'chrome87', 'safari14'],
       cssTarget: ['chrome87', 'safari14'],
+      cssCodeSplit: true,
+      minify: 'terser',
+      terserOptions: {
+        compress: {
+          drop_console: isProd,
+          drop_debugger: isProd
+        }
+      }
     },
-    // Resolve path aliases
     resolve: {
       alias: {
         '@': resolve(__dirname, 'src'),
