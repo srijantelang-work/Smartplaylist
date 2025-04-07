@@ -22,17 +22,6 @@ export function AuthCallback() {
           hasAuthRedirect: !!localStorage.getItem('auth_redirect')
         });
 
-        // Log all search parameters for debugging
-        console.log('Auth callback received:', {
-          params: Object.fromEntries(searchParams.entries()),
-          url: window.location.href,
-          hasSession: !!(await supabase.auth.getSession()).data.session
-        });
-
-        // Clear any stale state that might cause loops
-        sessionStorage.removeItem('spotify_auth_state');
-        localStorage.removeItem('spotify_auth_state');
-
         // First, check if this is a Supabase auth callback
         const { data: { session }, error: supabaseError } = await supabase.auth.getSession();
         
@@ -97,6 +86,10 @@ export function AuthCallback() {
           // Get the return URL from localStorage if it exists
           const returnTo = localStorage.getItem('auth_redirect') || '/';
           localStorage.removeItem('auth_redirect');
+          
+          // Clear any remaining auth states
+          sessionStorage.removeItem('spotify_auth_state');
+          localStorage.removeItem('spotify_auth_state');
           
           // Navigate to the return URL
           navigate(returnTo, { replace: true });
@@ -173,8 +166,15 @@ export function AuthCallback() {
       } catch (err) {
         console.error('Error in auth callback:', err);
         setError(err instanceof Error ? err.message : 'Authentication failed');
+        
+        // Clear any stale state
+        sessionStorage.removeItem('spotify_auth_state');
+        localStorage.removeItem('spotify_auth_state');
+        localStorage.removeItem('auth_redirect');
+        
+        // Redirect to login after error
         setTimeout(() => {
-          navigate('/settings', { replace: true });
+          navigate('/auth/login', { replace: true });
         }, 3000);
       }
     };
@@ -190,7 +190,7 @@ export function AuthCallback() {
             <div className="text-red-500 bg-red-900/20 px-4 py-3 rounded-lg">
               {error}
             </div>
-            <p className="text-[#E8E8E8]">Redirecting...</p>
+            <p className="text-[#E8E8E8]">Redirecting to login...</p>
           </div>
         ) : (
           <>

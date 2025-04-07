@@ -154,7 +154,75 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      // First get the current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Session retrieval error:', sessionError);
+      }
+
+      // If we have a valid session, try to sign out properly
+      if (session?.access_token) {
+        try {
+          // Try local scope first
+          const { error: localError } = await supabase.auth.signOut({
+            scope: 'local'
+          });
+
+          if (localError) {
+            console.error('Local sign out error:', localError);
+            
+            // Only try global scope if local failed
+            const { error: globalError } = await supabase.auth.signOut({
+              scope: 'global'
+            });
+
+            if (globalError) {
+              console.error('Global sign out error:', globalError);
+            }
+          }
+        } catch (signOutError) {
+          console.error('Sign out operation error:', signOutError);
+        }
+      }
+
+      // Regardless of sign out success, clean up all auth states
+      try {
+        // Clear session explicitly first
+        await supabase.auth.setSession({
+          access_token: '',
+          refresh_token: ''
+        });
+
+        // Then clear all OAuth and auth-related states
+        sessionStorage.removeItem('spotify_auth_state');
+        localStorage.removeItem('spotify_auth_state');
+        localStorage.removeItem('auth_redirect');
+        
+        // Clear any other auth-related storage
+        localStorage.removeItem('supabase.auth.token');
+        sessionStorage.removeItem('supabase.auth.token');
+        
+        // Force refresh auth state
+        setUser(null);
+      } catch (cleanupError) {
+        console.error('Auth cleanup error:', cleanupError);
+      }
+    } catch (error) {
+      console.error('Sign out process error:', error);
+      
+      // Final fallback: force clear everything
+      try {
+        await supabase.auth.setSession({
+          access_token: '',
+          refresh_token: ''
+        });
+        setUser(null);
+      } catch (finalError) {
+        console.error('Final cleanup error:', finalError);
+      }
+    }
   };
 
   const value = {
