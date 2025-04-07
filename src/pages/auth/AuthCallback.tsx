@@ -22,6 +22,9 @@ export function AuthCallback() {
           hasAuthRedirect: !!localStorage.getItem('auth_redirect')
         });
 
+        // Wait briefly to ensure Supabase has processed the OAuth callback
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
         // First, check if this is a Supabase auth callback
         const { data: { session }, error: supabaseError } = await supabase.auth.getSession();
         
@@ -73,6 +76,12 @@ export function AuthCallback() {
                   throw refreshError;
                 }
 
+                // Double check session after refresh
+                const { data: { session: refreshedSession } } = await supabase.auth.getSession();
+                if (!refreshedSession) {
+                  throw new Error('Session refresh failed');
+                }
+
                 console.log('Spotify token exchange completed successfully');
               } catch (tokenError) {
                 console.error('Token exchange failed:', tokenError);
@@ -85,13 +94,20 @@ export function AuthCallback() {
 
           // Get the return URL from localStorage if it exists
           const returnTo = localStorage.getItem('auth_redirect') || '/';
-          localStorage.removeItem('auth_redirect');
           
-          // Clear any remaining auth states
+          // Clear auth states AFTER successful processing
+          localStorage.removeItem('auth_redirect');
           sessionStorage.removeItem('spotify_auth_state');
           localStorage.removeItem('spotify_auth_state');
           
+          // Ensure we still have a valid session before redirecting
+          const { data: { session: finalSession } } = await supabase.auth.getSession();
+          if (!finalSession) {
+            throw new Error('Session lost during callback processing');
+          }
+
           // Navigate to the return URL
+          console.log('Auth callback successful, redirecting to:', returnTo);
           navigate(returnTo, { replace: true });
           return;
         }
