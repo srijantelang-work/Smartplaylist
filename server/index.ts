@@ -21,9 +21,20 @@ const supabase = createClient(
 );
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' 
-    ? 'https://smartplaylist.vercel.app'
-    : 'http://localhost:5173'),
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      'https://smartplaylist.vercel.app',
+      'https://smartplaylist.vercel.app/',
+      process.env.NODE_ENV === 'development' ? 'http://localhost:5173' : null
+    ].filter(Boolean);
+
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.error('Origin not allowed:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: [
