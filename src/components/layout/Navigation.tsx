@@ -65,7 +65,7 @@ export function Navigation({ children }: { children: React.ReactNode }) {
           {/* Logo */}
           <div className="flex h-16 flex-shrink-0 items-center px-4">
             <Link to="/" className="flex items-center space-x-2">
-              <span className="text-white font-bold text-xl">SmartPlaylist</span>
+              <span className="text-white font-thin text-2xl tracking-[0.2em]">SmartPlaylist</span>
             </Link>
           </div>
 
@@ -78,7 +78,7 @@ export function Navigation({ children }: { children: React.ReactNode }) {
                   <Link
                     key={item.name}
                     to={item.path}
-                    className={`group flex items-center px-4 py-3 text-sm font-medium rounded-lg ${
+                    className={`group flex items-center px-4 py-3 text-sm font-light tracking-[0.1em] rounded-lg ${
                       isActive
                         ? 'bg-[#1DB954] text-white'
                         : 'text-[#E8E8E8] hover:bg-[#323232]'
@@ -130,7 +130,7 @@ export function Navigation({ children }: { children: React.ReactNode }) {
           <div className="fixed inset-y-0 left-0 w-full max-w-xs bg-[#121212] pt-5 pb-4 flex flex-col">
             <div className="px-4 flex items-center justify-between">
               <Link to="/" className="flex items-center space-x-2">
-                <span className="text-white font-bold text-xl">SmartPlaylist</span>
+                <span className="text-white font-thin text-2xl tracking-[0.2em]">SmartPlaylist</span>
               </Link>
               <button
                 type="button"
@@ -151,7 +151,7 @@ export function Navigation({ children }: { children: React.ReactNode }) {
                   <Link
                     key={item.name}
                     to={item.path}
-                    className={`group flex items-center px-4 py-3 text-sm font-medium rounded-lg ${
+                    className={`group flex items-center px-4 py-3 text-sm font-light tracking-[0.1em] rounded-lg ${
                       isActive
                         ? 'bg-[#1DB954] text-white'
                         : 'text-[#E8E8E8] hover:bg-[#323232]'

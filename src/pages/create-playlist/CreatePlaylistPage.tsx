@@ -120,10 +120,10 @@ export function CreatePlaylistPage() {
           <div className="space-y-12">
             {/* Header */}
             <div className="text-center space-y-6">
-              <h1 className="text-6xl font-bold bg-gradient-to-r from-white via-gray-200 to-gray-300 bg-clip-text text-transparent">
+              <h1 className="text-6xl font-extralight bg-gradient-to-r from-white via-gray-200 to-gray-300 bg-clip-text text-transparent tracking-wider">
                 What music inspires you?
               </h1>
-              <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+              <p className="text-xl text-gray-300 max-w-2xl mx-auto font-extralight tracking-wider">
                 Create personalized playlists with AI-powered music recommendations.
               </p>
             </div>
@@ -136,7 +136,7 @@ export function CreatePlaylistPage() {
                 loading={loading}
               />
               {error && (
-                <div className="mt-6 p-4 bg-red-900/20 border border-red-500/50 rounded-lg text-red-200 backdrop-blur-sm">
+                <div className="mt-6 p-4 bg-red-900/20 border border-red-500/50 rounded-lg text-red-200 backdrop-blur-sm font-extralight tracking-wider">
                   {error}
                 </div>
               )}
@@ -151,8 +151,8 @@ export function CreatePlaylistPage() {
                       <div className="absolute top-0 left-0 w-16 h-16 border-t-4 border-[var(--primary-color)] rounded-full"></div>
                     </div>
                   </div>
-                  <p className="text-xl font-medium text-gray-200">Crafting your perfect playlist...</p>
-                  <p className="text-sm text-gray-400">This might take a moment</p>
+                  <p className="text-xl font-extralight text-gray-200 tracking-wider">Crafting your perfect playlist...</p>
+                  <p className="text-sm text-gray-400 font-extralight tracking-wider">This might take a moment</p>
                 </div>
               </div>
             )}

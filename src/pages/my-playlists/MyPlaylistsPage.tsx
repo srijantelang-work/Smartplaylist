@@ -92,11 +92,11 @@ export function MyPlaylistsPage() {
         
         {/* Content */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center relative z-10">
-          <h1 className="text-3xl font-bold text-white mb-4 drop-shadow-lg">My Playlists</h1>
-          <p className="text-gray-300 mb-8 drop-shadow-md">Please log in to view your playlists.</p>
+          <h1 className="text-3xl font-light text-white mb-4 drop-shadow-lg tracking-wide">My Playlists</h1>
+          <p className="text-gray-300 mb-8 drop-shadow-md font-light tracking-wide">Please log in to view your playlists.</p>
           <Link
             to="/auth/login"
-            className="bg-[var(--primary-color)] text-white px-6 py-3 rounded-md hover:bg-[var(--primary-color)]/90 backdrop-blur-sm transition-all"
+            className="bg-[var(--primary-color)] text-white px-6 py-3 rounded-md hover:bg-[var(--primary-color)]/90 backdrop-blur-sm transition-all font-light tracking-wide"
           >
             Log In
           </Link>
@@ -116,10 +116,10 @@ export function MyPlaylistsPage() {
       {/* Main content */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-white drop-shadow-lg">My Playlists</h1>
+          <h1 className="text-3xl font-light text-white drop-shadow-lg tracking-wide">My Playlists</h1>
           <Link
             to="/create-playlist"
-            className="bg-[var(--primary-color)] text-white px-4 py-2 rounded-md hover:bg-[var(--primary-color)]/90 backdrop-blur-sm transition-all"
+            className="bg-[var(--primary-color)] text-white px-4 py-2 rounded-md hover:bg-[var(--primary-color)]/90 backdrop-blur-sm transition-all font-light tracking-wide"
           >
             Create New Playlist
           </Link>
@@ -128,15 +128,15 @@ export function MyPlaylistsPage() {
         {loading ? (
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[var(--primary-color)] mx-auto"></div>
-            <p className="text-gray-300 mt-4">Loading playlists...</p>
+            <p className="text-gray-300 mt-4 font-light tracking-wide">Loading playlists...</p>
           </div>
         ) : playlists.length === 0 ? (
           <div className="text-center py-16 bg-black/40 backdrop-blur-sm rounded-lg border border-white/10">
-            <h2 className="text-xl font-semibold text-white mb-4">No Playlists Yet</h2>
-            <p className="text-gray-300 mb-8">Create your first playlist to get started!</p>
+            <h2 className="text-xl font-light text-white mb-4 tracking-wide">No Playlists Yet</h2>
+            <p className="text-gray-300 mb-8 font-light tracking-wide">Create your first playlist to get started!</p>
             <Link
               to="/create-playlist"
-              className="bg-[var(--primary-color)] text-white px-6 py-3 rounded-md hover:bg-[var(--primary-color)]/90 transition-all"
+              className="bg-[var(--primary-color)] text-white px-6 py-3 rounded-md hover:bg-[var(--primary-color)]/90 transition-all font-light tracking-wide"
             >
               Create Playlist
             </Link>
@@ -149,11 +149,11 @@ export function MyPlaylistsPage() {
                   to={`/playlist-result/${playlist.id}`}
                   className="block bg-black/40 backdrop-blur-sm rounded-lg p-6 hover:bg-black/60 transition-all duration-300 border border-white/10 group"
                 >
-                  <h2 className="text-xl font-semibold text-white mb-2 group-hover:text-[var(--primary-color)]">{playlist.name}</h2>
+                  <h2 className="text-xl font-light text-white mb-2 group-hover:text-[var(--primary-color)] tracking-wide">{playlist.name}</h2>
                   {playlist.description && (
-                    <p className="text-gray-300 mb-4 line-clamp-2">{playlist.description}</p>
+                    <p className="text-gray-300 mb-4 line-clamp-2 font-light tracking-wide">{playlist.description}</p>
                   )}
-                  <div className="flex justify-between text-sm text-gray-400">
+                  <div className="flex justify-between text-sm text-gray-400 font-light tracking-wide">
                     <span className="flex items-center">
                       <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
@@ -177,21 +177,21 @@ export function MyPlaylistsPage() {
                 {deleteConfirmation === playlist.id && (
                   <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
                     <div className="bg-gray-900 p-6 rounded-lg max-w-md w-full mx-4 border border-gray-700">
-                      <h3 className="text-xl font-semibold text-white mb-4">Delete Playlist</h3>
-                      <p className="text-gray-300 mb-6">
+                      <h3 className="text-xl font-light text-white mb-4 tracking-wide">Delete Playlist</h3>
+                      <p className="text-gray-300 mb-6 font-light tracking-wide">
                         Are you sure you want to delete "{playlist.name}"? This action cannot be undone.
                       </p>
                       <div className="flex justify-end space-x-4">
                         <button
                           onClick={handleCancelDelete}
-                          className="px-4 py-2 text-gray-300 hover:text-white transition-colors duration-200"
+                          className="px-4 py-2 text-gray-300 hover:text-white transition-colors duration-200 font-light tracking-wide"
                           disabled={isDeleting}
                         >
                           Cancel
                         </button>
                         <button
                           onClick={() => handleConfirmDelete(playlist.id)}
-                          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-light tracking-wide"
                           disabled={isDeleting}
                         >
                           {isDeleting ? 'Deleting...' : 'Delete'}

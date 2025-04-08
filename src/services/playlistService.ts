@@ -49,6 +49,7 @@ interface GeneratePlaylistRequest {
   prompt: string;
   mood?: string;
   songCount?: number;
+  genres?: string[];
   options?: PlaylistGenerationOptions;
 }
 
@@ -534,68 +535,81 @@ export class PlaylistService {
       let bpmRange: { min?: number; max?: number } = {};
       let mood: string | undefined;
       let songCount: number = 20;
+      let genres: string[] = [];
       
       // Parse arguments
       if (typeof promptOrOptions === 'string') {
         prompt = promptOrOptions;
-        // Try to extract BPM requirements from the prompt
         bpmRange = this.extractBpmRangeFromPrompt(prompt);
       } else {
         prompt = promptOrOptions.prompt;
         mood = promptOrOptions.mood;
         songCount = promptOrOptions.songCount || 20;
-        // Try to extract BPM requirements from the prompt
+        genres = promptOrOptions.genres || [];
         bpmRange = this.extractBpmRangeFromPrompt(prompt);
         
-        // Merge any additional options
         if (promptOrOptions.options) {
           generationOptions = { ...promptOrOptions.options };
         }
       }
-      
-      // Build a more detailed system prompt if one isn't provided
-      if (!generationOptions.systemPrompt) {
-        // Include specific BPM requirements if detected
-        let bpmInstruction = '';
-        if (bpmRange.min && bpmRange.max) {
-          bpmInstruction = `with BPM between ${bpmRange.min} and ${bpmRange.max}`;
-        } else if (bpmRange.min) {
-          bpmInstruction = `with BPM of at least ${bpmRange.min}`;
-        } else if (bpmRange.max) {
-          bpmInstruction = `with BPM up to ${bpmRange.max}`;
-        }
-        
-        // Add diversity instructions to system prompt
-        let diversityInstructions = '';
-        if (diversityOptions?.maxSongsPerArtist) {
-          diversityInstructions += ` Include no more than ${diversityOptions.maxSongsPerArtist} songs per artist.`;
-        }
-        if (diversityOptions?.minUniqueArtists) {
-          diversityInstructions += ` Include at least ${diversityOptions.minUniqueArtists} unique artists.`;
-        }
-        
-        generationOptions.systemPrompt = `You are a world-class music curator with deep knowledge of music history, genres, and artist catalogs. Generate an authentic ${mood || 'versatile'} playlist ${bpmInstruction} with exactly ${songCount} songs${diversityInstructions}.
+
+      // Get mood-specific BPM ranges if not explicitly set
+      if (!bpmRange.min && !bpmRange.max) {
+        bpmRange = this.getMoodBasedBPMRange(mood);
+      }
+
+      // Calculate genre weights and distribution
+      const genreDistribution = this.calculateGenreDistribution(genres, songCount);
+      const genreInstructions = genres.length > 0 
+        ? `
+Genre Distribution Requirements:
+${Object.entries(genreDistribution)
+  .map(([genre, count]) => `- ${genre}: approximately ${count} songs`)
+  .join('\n')}
+
+Maintain this genre balance while ensuring smooth transitions between genres. When mixing genres, prefer songs that can bridge different styles naturally.`
+        : 'Create a well-balanced mix of genres that work well together.';
+
+      generationOptions.systemPrompt = `You are a world-class music curator with deep knowledge of music history, genres, and artist catalogs. Generate an authentic ${mood || 'versatile'} playlist that follows these specific requirements:
+
+MOOD & TEMPO:
+${this.getMoodSpecificInstructions(mood)}
+- BPM Range: ${bpmRange.min || '70'}-${bpmRange.max || '180'} BPM
+${this.getMoodTransitionGuidelines(mood)}
+
+GENRE REQUIREMENTS:
+${genreInstructions}
+
+PLAYLIST STRUCTURE:
+- Generate exactly ${songCount} songs
+- Ensure smooth transitions between songs
+- Create a natural energy flow throughout the playlist
+${diversityOptions ? this.getDiversityInstructions(diversityOptions) : ''}
 
 Your response must be a valid JSON array of song objects with the following fields:
 - "title": The exact song title with correct capitalization
 - "artist": The primary artist name with correct capitalization
 - "album": The album the song appears on
 - "year": The release year (number between 1920-${new Date().getFullYear()})
-- "bpm": The beats per minute ${bpmRange.min || bpmRange.max ? `(MUST be ${bpmInstruction})` : '(between 70-180)'} - IMPORTANT: Vary the BPM values for individual songs, don't use the same value for all songs
-- "duration": Length in seconds (between 180-300 seconds) - VARY these values naturally, don't use the same duration for all songs
-- "genre": Primary genre classification
+- "bpm": The beats per minute (MUST follow the specified BPM range with natural variation)
+- "duration": Length in seconds (between 180-300 seconds)
+- "genre": Primary genre classification (MUST align with the genre distribution requirements)
 - "key": Musical key if known (optional)
+- "subgenres": Array of relevant subgenres (optional)
+- "mood_tags": Array of mood-related descriptors (optional)
 
-${bpmRange.min || bpmRange.max ? 
-`CRITICAL: Ensure EVERY song's BPM is ${bpmInstruction}, but with natural variation within this range. Using exactly the same BPM for all songs will result in a poor playlist.` : 
-'Include accurate and varied BPM values for each song. This is essential for the playlist flow.'}
+CRITICAL REQUIREMENTS:
+1. Maintain the specified genre distribution while ensuring playlist cohesion
+2. Ensure natural BPM progression within the specified range
+3. Select songs that genuinely match the ${mood || 'requested'} mood in terms of:
+   - Lyrical themes
+   - Instrumental elements
+   - Vocal delivery
+   - Production style
+4. Create smooth transitions between different genres and tempos
+5. Include both well-known and lesser-known tracks for variety
 
-${mood ? `Focus on songs that genuinely match a ${mood} mood - consider tempo, instruments, vocals, and lyrical themes.` : ''}
-
-Ensure all song details are factually accurate. Include a diverse mix of well-known and lesser-known tracks that work well together as a cohesive listening experience. Consider transitions between songs for a smooth flow.
-
-CRITICAL: Do not return songs with identical BPMs and durations - ensure there is natural variety in your playlist.`;
-      }
+Do not return songs with identical BPMs and durations - ensure natural variety in your playlist.`;
 
       // Validate prompt
       if (!prompt || typeof prompt !== 'string') {
@@ -815,6 +829,78 @@ CRITICAL: Do not return songs with identical BPMs and durations - ensure there i
     }
     
     return correctedSongs;
+  }
+
+  private getMoodBasedBPMRange(mood?: string): { min: number; max: number } {
+    const moodBPMRanges: Record<string, { min: number; max: number }> = {
+      'energetic': { min: 120, max: 160 },
+      'relaxed': { min: 60, max: 90 },
+      'focused': { min: 70, max: 110 },
+      'party': { min: 115, max: 130 },
+      'workout': { min: 125, max: 145 },
+      'chill': { min: 65, max: 95 },
+      'happy': { min: 95, max: 130 },
+      'sad': { min: 60, max: 85 }
+    };
+    
+    return mood ? moodBPMRanges[mood] || { min: 70, max: 180 } : { min: 70, max: 180 };
+  }
+
+  private getMoodSpecificInstructions(mood?: string): string {
+    const moodInstructions: Record<string, string> = {
+      'energetic': 'Focus on high-energy songs with strong rhythms and uplifting elements',
+      'relaxed': 'Select songs with gentle rhythms and soothing melodies',
+      'focused': 'Choose songs with minimal lyrics and consistent rhythms',
+      'party': 'Include danceable tracks with strong beats and memorable hooks',
+      'workout': 'Select high-energy songs with strong, motivating rhythms',
+      'chill': 'Focus on laid-back tracks with smooth progressions',
+      'happy': 'Choose uplifting songs with positive lyrics and bright melodies',
+      'sad': 'Select emotionally resonant songs with deeper themes'
+    };
+
+    return mood 
+      ? `- Mood Focus: ${moodInstructions[mood]}`
+      : '- Balance different moods while maintaining playlist coherence';
+  }
+
+  private getMoodTransitionGuidelines(mood?: string): string {
+    return mood
+      ? `- Create smooth energy transitions while maintaining the ${mood} mood throughout`
+      : '- Ensure natural energy flow between songs';
+  }
+
+  private calculateGenreDistribution(genres: string[], totalSongs: number): Record<string, number> {
+    if (!genres.length) return {};
+
+    const distribution: Record<string, number> = {};
+    const baseCount = Math.floor(totalSongs / genres.length);
+    let remaining = totalSongs;
+
+    // First pass: assign base counts
+    genres.forEach(genre => {
+      distribution[genre] = baseCount;
+      remaining -= baseCount;
+    });
+
+    // Second pass: distribute remaining songs
+    // Prioritize primary genres (first in the list)
+    let index = 0;
+    while (remaining > 0) {
+      distribution[genres[index % genres.length]]++;
+      remaining--;
+      index++;
+    }
+
+    return distribution;
+  }
+
+  private getDiversityInstructions(options: DiversityOptions): string {
+    return `
+DIVERSITY REQUIREMENTS:
+- Maximum ${options.maxSongsPerArtist || 2} songs per artist
+- Include at least ${options.minUniqueArtists || 5} different artists
+- Vary release years to include both classic and contemporary tracks
+- Mix mainstream and underground artists`;
   }
 }
 

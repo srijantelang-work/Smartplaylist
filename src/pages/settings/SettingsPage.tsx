@@ -36,8 +36,8 @@ export function SettingsPage() {
         <div className="max-w-7xl mx-auto px-4 py-8">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">Settings</h1>
-            <p className="text-[#E8E8E8]">
+            <h1 className="text-3xl font-light mb-2 tracking-wide">Settings</h1>
+            <p className="text-[#E8E8E8] font-light tracking-wide">
               Manage your account settings and preferences
             </p>
           </div>
@@ -50,7 +50,7 @@ export function SettingsPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors font-light tracking-wide ${
                     activeTab === tab.id
                       ? 'bg-[#1DB954] text-white'
                       : 'text-[#E8E8E8] hover:bg-[#323232]'
