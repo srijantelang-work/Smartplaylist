@@ -120,9 +120,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     sessionStorage.removeItem('spotify_auth_state');
     localStorage.removeItem('spotify_auth_state');
     
-    // Store the current path for redirect after auth
+    // Store the redirect path, defaulting to home if on auth pages
     const currentPath = window.location.pathname;
-    localStorage.setItem('auth_redirect', currentPath);
+    const redirectPath = currentPath.startsWith('/auth/') ? '/' : currentPath;
+    localStorage.setItem('auth_redirect', redirectPath);
     
     // Get the current origin for the redirect URL
     const origin = window.location.origin;
