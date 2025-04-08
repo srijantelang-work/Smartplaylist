@@ -2,31 +2,22 @@ import { useAuth } from '../../hooks/useAuth';
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import backgroundGif from '../../assets/images/fxVE.gif';
-import fallbackImage from '../../assets/images/dj-ring.jpeg';
 
 export function HomePage() {
   const { user } = useAuth();
   const [backgroundLoaded, setBackgroundLoaded] = useState(false);
-  const [backgroundError, setBackgroundError] = useState(false);
 
   useEffect(() => {
     const img = new Image();
     img.onload = () => {
       console.log('Background GIF loaded successfully');
       setBackgroundLoaded(true);
-      setBackgroundError(false);
-    };
-    img.onerror = (e) => {
-      console.error('Error loading background GIF:', e);
-      setBackgroundError(true);
-      img.src = fallbackImage;
     };
     
     img.src = backgroundGif;
 
     return () => {
       img.onload = null;
-      img.onerror = null;
     };
   }, []);
 
@@ -42,7 +33,7 @@ export function HomePage() {
               backgroundLoaded ? 'opacity-100' : 'opacity-0'
             }`}
             style={{
-              backgroundImage: `url('${backgroundError ? fallbackImage : backgroundGif}')`,
+              backgroundImage: `url('${backgroundGif}')`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               backgroundRepeat: 'no-repeat',
@@ -53,18 +44,9 @@ export function HomePage() {
           {/* Dark overlay for better text visibility */}
           <div className="absolute inset-0 rounded-full bg-black/30" />
           
-          {/* Fallback Background */}
+          {/* Loading state */}
           {!backgroundLoaded && (
-            <div 
-              className="absolute inset-0 rounded-full"
-              style={{
-                backgroundImage: `url('${fallbackImage}')`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundRepeat: 'no-repeat',
-                filter: 'brightness(0.8)',
-              }}
-            />
+            <div className="absolute inset-0 rounded-full bg-[#121212]" />
           )}
           
           {/* Content */}
