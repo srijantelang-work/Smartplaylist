@@ -116,12 +116,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const signInWithProvider = async (provider: Provider) => {
-    localStorage.setItem('auth_redirect', window.location.pathname);
+    // Clear any existing auth states before starting new flow
+    sessionStorage.removeItem('spotify_auth_state');
+    localStorage.removeItem('spotify_auth_state');
+    
+    // Store the current path for redirect after auth
+    const currentPath = window.location.pathname;
+    localStorage.setItem('auth_redirect', currentPath);
     
     // Get the current origin for the redirect URL
     const origin = window.location.origin;
     const redirectUrl = `${origin}/auth/callback`;
     
+    console.log('Starting provider sign in:', {
+      provider,
+      redirectUrl,
+      currentPath,
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV
+    });
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
@@ -143,11 +157,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
         provider,
         error,
         redirectUrl,
-        currentUrl: window.location.href
+        currentUrl: window.location.href,
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV
       });
       // Clear any stale state that might cause loops
       sessionStorage.removeItem('spotify_auth_state');
       localStorage.removeItem('spotify_auth_state');
+      localStorage.removeItem('auth_redirect');
     }
 
     return { error };

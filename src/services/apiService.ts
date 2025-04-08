@@ -15,7 +15,7 @@ class ApiService {
     if (!import.meta.env.VITE_API_URL) {
       console.warn('VITE_API_URL is not set. API calls may fail in production.');
     }
-    this.baseUrl = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '');
+    this.baseUrl = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:3001' : '')).replace(/\/$/, '');
   }
 
   static getInstance(): ApiService {
@@ -38,36 +38,42 @@ class ApiService {
     return headers;
   }
 
+  private getApiUrl(path: string): string {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+    return `${this.baseUrl}${normalizedPath}`;
+  }
+
   async generatePlaylist(prompt: string, options: PlaylistGenerationOptions = {}): Promise<ApiResponse<string>> {
     try {
       const headers = await this.getAuthHeader();
-      const response = await fetch(`${this.baseUrl}/api/playlist/generate`, {
+      const response = await fetch(this.getApiUrl('/api/playlist/generate'), {
         method: 'POST',
         headers,
         body: JSON.stringify({ prompt, options }),
         credentials: 'include'
       });
 
-      const data = await response.json();
-
       if (!response.ok) {
-        // Enhanced error handling with server details
-        const errorMessage = data.error || `HTTP error! status: ${response.status}`;
         console.error('Playlist generation failed:', {
           status: response.status,
-          error: data.error,
-          details: data.details
+          statusText: response.statusText,
+          url: response.url,
+          headers: Object.fromEntries(response.headers.entries()),
+          environment: import.meta.env.MODE
         });
+
+        const data = await response.json().catch(() => ({}));
+        const errorMessage = data.error || `HTTP error! status: ${response.status}`;
         return { error: errorMessage };
       }
 
-      // Validate the response format
+      const data = await response.json();
+
       if (!data.success || !data.data || !Array.isArray(data.data)) {
         console.error('Invalid response format:', data);
         return { error: 'Invalid response format from server' };
       }
 
-      // Convert the validated array back to a string for backward compatibility
       return { data: JSON.stringify(data.data) };
     } catch (error) {
       console.error('Error generating playlist:', error);
@@ -82,7 +88,7 @@ class ApiService {
   async analyzeAudio(audioUrl: string): Promise<ApiResponse<AudioFeatures>> {
     try {
       const headers = await this.getAuthHeader();
-      const response = await fetch(`${this.baseUrl}/api/audio/analyze`, {
+      const response = await fetch(this.getApiUrl('/api/audio/analyze'), {
         method: 'POST',
         headers,
         body: JSON.stringify({ audioUrl }),

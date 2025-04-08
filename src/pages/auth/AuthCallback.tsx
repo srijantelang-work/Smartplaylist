@@ -40,7 +40,9 @@ export function AuthCallback() {
           console.error('Supabase auth error:', {
             error: supabaseError,
             url: window.location.href,
-            params: Object.fromEntries(searchParams.entries())
+            params: Object.fromEntries(searchParams.entries()),
+            timestamp: new Date().toISOString(),
+            environment: process.env.NODE_ENV
           });
           throw supabaseError;
         }
@@ -50,12 +52,16 @@ export function AuthCallback() {
           // Enhanced session logging
           console.log('Session details:', {
             timestamp: new Date().toISOString(),
+            environment: process.env.NODE_ENV,
             provider: session.user?.app_metadata?.provider,
             userId: session.user?.id,
             hasSpotifyTokens: !!session.user?.user_metadata?.spotify_tokens,
             hasAccessToken: !!session.access_token,
             metadata: session.user?.user_metadata,
-            appMetadata: session.user?.app_metadata
+            appMetadata: session.user?.app_metadata,
+            currentUrl: window.location.href,
+            hasLocalStorage: !!localStorage.getItem('auth_redirect'),
+            hasSessionStorage: !!sessionStorage.getItem('spotify_auth_state')
           });
 
           // If this was a Spotify auth and we don't have tokens, we need to exchange the code
