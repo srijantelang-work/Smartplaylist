@@ -1,210 +1,202 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
-
-interface Playlist {
-  id: string;
-  name: string;
-  description: string | null;
-  created_at: string;
-  song_count: number;
-}
+import { usePlaylistStore } from '@/stores/playlistStore';
+import type { Playlist } from '@/types/database';
 
 export function MyPlaylistsPage() {
-  const { user } = useAuth();
-  const [playlists, setPlaylists] = useState<Playlist[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [deleteConfirmation, setDeleteConfirmation] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const { playlists, loading, error, fetchPlaylists } = usePlaylistStore();
 
   useEffect(() => {
-    async function fetchPlaylists() {
-      try {
-        const { data, error } = await supabase
-          .from('playlists')
-          .select('*')
-          .eq('user_id', user?.id)
-          .order('created_at', { ascending: false });
+    fetchPlaylists();
+  }, [fetchPlaylists]);
 
-        if (error) throw error;
-        setPlaylists(data || []);
-      } catch (error) {
-        console.error('Error fetching playlists:', error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    if (user) {
-      fetchPlaylists();
-    }
-  }, [user]);
-
-  const handleDeleteClick = (playlistId: string) => {
-    setDeleteConfirmation(playlistId);
-  };
-
-  const handleCancelDelete = () => {
-    setDeleteConfirmation(null);
-  };
-
-  const handleConfirmDelete = async (playlistId: string) => {
-    try {
-      setIsDeleting(true);
-      
-      // First delete all songs in the playlist
-      const { error: songsError } = await supabase
-        .from('songs')
-        .delete()
-        .eq('playlist_id', playlistId);
-
-      if (songsError) throw songsError;
-
-      // Then delete the playlist
-      const { error: playlistError } = await supabase
-        .from('playlists')
-        .delete()
-        .eq('id', playlistId)
-        .eq('user_id', user?.id); // Ensure user owns the playlist
-
-      if (playlistError) throw playlistError;
-
-      // Update local state
-      setPlaylists(playlists.filter(p => p.id !== playlistId));
-      setDeleteConfirmation(null);
-    } catch (error) {
-      console.error('Error deleting playlist:', error);
-      alert('Failed to delete playlist. Please try again.');
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  if (!user) {
+  if (loading) {
     return (
-      <div className="min-h-screen relative">
-        {/* Background with overlay */}
-        <div className="fixed inset-0 z-0">
-          <div className="absolute inset-0 bg-[url('/playlist-wallpaper.jpg')] bg-cover bg-center bg-no-repeat opacity-80" />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/70 to-black/90" />
+      <div className="min-h-screen animated-gradient particles relative overflow-hidden pt-24">
+        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm"></div>
+        <div className="relative z-10 flex items-center justify-center h-[calc(100vh-6rem)]">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-[#1DB954] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-300 text-lg font-light">Loading your playlists...</p>
+          </div>
         </div>
-        
-        {/* Content */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center relative z-10">
-          <h1 className="text-3xl font-light text-white mb-4 drop-shadow-lg tracking-wide">My Playlists</h1>
-          <p className="text-gray-300 mb-8 drop-shadow-md font-light tracking-wide">Please log in to view your playlists.</p>
-          <Link
-            to="/auth/login"
-            className="bg-[var(--primary-color)] text-white px-6 py-3 rounded-md hover:bg-[var(--primary-color)]/90 backdrop-blur-sm transition-all font-light tracking-wide"
-          >
-            Log In
-          </Link>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen animated-gradient particles relative overflow-hidden pt-24">
+        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm"></div>
+        <div className="relative z-10 flex items-center justify-center h-[calc(100vh-6rem)]">
+          <div className="text-center max-w-md mx-auto px-4">
+            <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <h3 className="text-2xl font-light text-white mb-2">Error Loading Playlists</h3>
+            <p className="text-gray-300 mb-6 font-light">{error}</p>
+            <button
+              onClick={() => fetchPlaylists()}
+              className="px-6 py-3 bg-[#1DB954] text-white rounded-xl hover:bg-[#1ed760] 
+                       transition-all duration-300 transform hover:scale-105"
+            >
+              Try Again
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-black pt-20">
-      {/* Background with overlay */}
-      <div className="fixed inset-0 z-0">
-        <div className="absolute inset-0 bg-[url('/playlist-wallpaper.jpg')] bg-cover bg-center bg-no-repeat opacity-40" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/70 to-black/90" />
-      </div>
-
+    <div className="min-h-screen animated-gradient particles relative overflow-hidden pt-24">
+      {/* Animated background overlay */}
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm"></div>
+      
       {/* Main content */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-light text-white drop-shadow-lg tracking-wide">My Playlists</h1>
+      <div className="relative z-10 max-w-7xl mx-auto px-4 py-8">
+        {/* Header Section */}
+        <div className="flex justify-between items-center mb-12 animate-fade-in">
+          <h1 className="text-5xl font-thin tracking-wider text-white">
+            My <span className="text-[#1DB954] font-thin">Playlists</span>
+          </h1>
           <Link
             to="/create-playlist"
-            className="bg-[var(--primary-color)] text-white px-4 py-2 rounded-md hover:bg-[var(--primary-color)]/90 backdrop-blur-sm transition-all font-light tracking-wide"
+            className="group flex items-center gap-2 px-6 py-3 bg-[#1DB954] hover:bg-[#1ed760] text-white rounded-xl 
+                     transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-[#1DB954]/20"
           >
-            Create New Playlist
+            <span className="font-medium">Create New Playlist</span>
+            <svg 
+              className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1" 
+              fill="none" 
+              viewBox="0 0 24 24" 
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
           </Link>
         </div>
 
-        {loading ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[var(--primary-color)] mx-auto"></div>
-            <p className="text-gray-300 mt-4 font-light tracking-wide">Loading playlists...</p>
-          </div>
-        ) : playlists.length === 0 ? (
-          <div className="text-center py-16 bg-black/40 backdrop-blur-sm rounded-lg border border-white/10">
-            <h2 className="text-xl font-light text-white mb-4 tracking-wide">No Playlists Yet</h2>
-            <p className="text-gray-300 mb-8 font-light tracking-wide">Create your first playlist to get started!</p>
+        {/* Playlists Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {playlists.map((playlist: Playlist, index: number) => (
+            <Link
+              key={playlist.id}
+              to={`/playlist-result/${playlist.id}`}
+              className="group relative"
+              style={{
+                animation: `fadeSlideUp 0.6s ease-out ${index * 0.1}s forwards`,
+                opacity: 0,
+                transform: 'translateY(20px)'
+              }}
+            >
+              {/* Card with glass effect */}
+              <div className="glass-card rounded-2xl p-6 transition-all duration-300 
+                            group-hover:shadow-lg group-hover:shadow-[#1DB954]/10
+                            transform group-hover:translate-y-[-4px]">
+                {/* Playlist Title */}
+                <h3 className="text-xl font-medium text-white mb-2 truncate
+                             group-hover:text-[#1DB954] transition-colors duration-300">
+                  {playlist.name}
+                </h3>
+
+                {/* Playlist Description */}
+                <p className="text-gray-400 text-sm mb-4 line-clamp-2 font-light">
+                  {playlist.description || 'No description'}
+                </p>
+
+                {/* Playlist Stats */}
+                <div className="flex items-center gap-4 text-sm text-gray-400">
+                  <div className="flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                            d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                    </svg>
+                    <span>{playlist.song_count} songs</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>{Math.round(playlist.total_duration / 60)} mins</span>
+                  </div>
+                </div>
+
+                {/* Hover Effect Overlay */}
+                <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100
+                              bg-gradient-to-r from-[#1DB954]/10 via-transparent to-transparent
+                              transition-opacity duration-300" />
+              </div>
+            </Link>
+          ))}
+        </div>
+
+        {/* Empty State */}
+        {playlists.length === 0 && (
+          <div className="text-center py-20 animate-fade-in">
+            <div className="mb-6">
+              <svg className="w-16 h-16 mx-auto text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} 
+                      d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-light text-gray-300 mb-4">No Playlists Yet</h3>
+            <p className="text-gray-400 mb-8 font-light">Create your first playlist to get started!</p>
             <Link
               to="/create-playlist"
-              className="bg-[var(--primary-color)] text-white px-6 py-3 rounded-md hover:bg-[var(--primary-color)]/90 transition-all font-light tracking-wide"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-[#1DB954] hover:bg-[#1ed760] 
+                       text-white rounded-xl transition-all duration-300 transform hover:scale-105"
             >
-              Create Playlist
+              <span>Create Playlist</span>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
             </Link>
-          </div>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {playlists.map((playlist) => (
-              <div key={playlist.id} className="relative">
-                <Link
-                  to={`/playlist-result/${playlist.id}`}
-                  className="block bg-black/40 backdrop-blur-sm rounded-lg p-6 hover:bg-black/60 transition-all duration-300 border border-white/10 group"
-                >
-                  <h2 className="text-xl font-light text-white mb-2 group-hover:text-[var(--primary-color)] tracking-wide">{playlist.name}</h2>
-                  {playlist.description && (
-                    <p className="text-gray-300 mb-4 line-clamp-2 font-light tracking-wide">{playlist.description}</p>
-                  )}
-                  <div className="flex justify-between text-sm text-gray-400 font-light tracking-wide">
-                    <span className="flex items-center">
-                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
-                      </svg>
-                      {playlist.song_count} songs
-                    </span>
-                    <span className="text-gray-500">{new Date(playlist.created_at).toLocaleDateString()}</span>
-                  </div>
-                </Link>
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handleDeleteClick(playlist.id);
-                  }}
-                  className="absolute top-3 right-3 p-2 text-gray-400 hover:text-red-500 transition-colors duration-200 rounded-full hover:bg-black/40"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-                {deleteConfirmation === playlist.id && (
-                  <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-                    <div className="bg-gray-900 p-6 rounded-lg max-w-md w-full mx-4 border border-gray-700">
-                      <h3 className="text-xl font-light text-white mb-4 tracking-wide">Delete Playlist</h3>
-                      <p className="text-gray-300 mb-6 font-light tracking-wide">
-                        Are you sure you want to delete "{playlist.name}"? This action cannot be undone.
-                      </p>
-                      <div className="flex justify-end space-x-4">
-                        <button
-                          onClick={handleCancelDelete}
-                          className="px-4 py-2 text-gray-300 hover:text-white transition-colors duration-200 font-light tracking-wide"
-                          disabled={isDeleting}
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => handleConfirmDelete(playlist.id)}
-                          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed font-light tracking-wide"
-                          disabled={isDeleting}
-                        >
-                          {isDeleting ? 'Deleting...' : 'Delete'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
           </div>
         )}
       </div>
+
+      {/* Add animations */}
+      <style>
+        {`
+          @keyframes fadeSlideUp {
+            from {
+              opacity: 0;
+              transform: translateY(20px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+
+          .animated-gradient {
+            background: linear-gradient(
+              -45deg,
+              #121212,
+              #1a1a1a,
+              #1DB954/10,
+              #121212
+            );
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
+          }
+
+          @keyframes gradient {
+            0% {
+              background-position: 0% 50%;
+            }
+            50% {
+              background-position: 100% 50%;
+            }
+            100% {
+              background-position: 0% 50%;
+            }
+          }
+        `}
+      </style>
     </div>
   );
 } 
