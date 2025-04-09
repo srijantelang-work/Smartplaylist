@@ -902,6 +902,46 @@ DIVERSITY REQUIREMENTS:
 - Vary release years to include both classic and contemporary tracks
 - Mix mainstream and underground artists`;
   }
+
+  async deletePlaylist(playlistId: string) {
+    try {
+      // Get the current user's ID
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!user) throw new Error('User not authenticated');
+
+      // Verify playlist ownership
+      const { data: playlist } = await supabase
+        .from('playlists')
+        .select('user_id')
+        .eq('id', playlistId)
+        .single();
+
+      if (!playlist) throw new Error('Playlist not found');
+      if (playlist.user_id !== user.id) throw new Error('You do not have permission to delete this playlist');
+
+      // Delete all songs in the playlist first
+      const { error: songsError } = await supabase
+        .from('songs')
+        .delete()
+        .eq('playlist_id', playlistId);
+
+      if (songsError) throw songsError;
+
+      // Delete the playlist
+      const { error: playlistError } = await supabase
+        .from('playlists')
+        .delete()
+        .eq('id', playlistId);
+
+      if (playlistError) throw playlistError;
+    } catch (error) {
+      console.error('Failed to delete playlist:', error);
+      throw error instanceof Error 
+        ? error 
+        : new Error('Failed to delete playlist');
+    }
+  }
 }
 
 export const playlistService = PlaylistService.getInstance(); 

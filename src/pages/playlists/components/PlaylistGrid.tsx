@@ -7,9 +7,10 @@ interface PlaylistGridProps {
   loading: boolean;
   hasMore: boolean;
   onLoadMore: () => void;
+  onPlaylistDeleted?: (playlistId: string) => void;
 }
 
-export function PlaylistGrid({ playlists, loading, hasMore, onLoadMore }: PlaylistGridProps) {
+export function PlaylistGrid({ playlists, loading, hasMore, onLoadMore, onPlaylistDeleted }: PlaylistGridProps) {
   const observer = useRef<IntersectionObserver | null>(null);
   const lastPlaylistRef = useCallback((node: HTMLDivElement | null) => {
     if (loading) return;
@@ -52,7 +53,10 @@ export function PlaylistGrid({ playlists, loading, hasMore, onLoadMore }: Playli
           key={playlist.id}
           ref={index === playlists.length - 1 ? lastPlaylistRef : undefined}
         >
-          <PlaylistCard playlist={playlist} />
+          <PlaylistCard 
+            playlist={playlist} 
+            onDelete={() => onPlaylistDeleted?.(playlist.id)}
+          />
         </div>
       ))}
       {loading && (

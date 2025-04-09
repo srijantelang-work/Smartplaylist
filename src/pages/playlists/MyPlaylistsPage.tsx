@@ -118,6 +118,10 @@ export function MyPlaylistsPage() {
     }
   };
 
+  const handlePlaylistDeleted = (playlistId: string) => {
+    setPlaylists(prev => prev.filter(p => p.id !== playlistId));
+  };
+
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-black text-white">
@@ -150,6 +154,7 @@ export function MyPlaylistsPage() {
               loading={loading}
               hasMore={hasMore}
               onLoadMore={loadMore}
+              onPlaylistDeleted={handlePlaylistDeleted}
             />
           )}
         </div>

@@ -9,6 +9,23 @@ export function AuthCallback() {
   const [searchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
 
+  // Helper function to get stored return path
+  const getStoredReturnPath = () => {
+    const sessionReturnPath = sessionStorage.getItem('spotify_return_path');
+    const localReturnPath = localStorage.getItem('spotify_return_path');
+    try {
+      if (sessionReturnPath) {
+        return JSON.parse(sessionReturnPath);
+      }
+      if (localReturnPath) {
+        return JSON.parse(localReturnPath);
+      }
+    } catch (e) {
+      console.error('Failed to parse return path:', e);
+    }
+    return null;
+  };
+
   useEffect(() => {
     const handleCallback = async () => {
       try {
@@ -19,97 +36,11 @@ export function AuthCallback() {
           params: Object.fromEntries(searchParams.entries()),
           hasLocalState: !!localStorage.getItem('spotify_auth_state'),
           hasSessionState: !!sessionStorage.getItem('spotify_auth_state'),
-          hasAuthRedirect: !!localStorage.getItem('auth_redirect')
+          hasAuthRedirect: !!localStorage.getItem('auth_redirect'),
+          hasReturnPath: !!sessionStorage.getItem('spotify_return_path') || !!localStorage.getItem('spotify_return_path')
         });
 
-        // Log all search parameters for debugging
-        console.log('Auth callback received:', {
-          params: Object.fromEntries(searchParams.entries()),
-          url: window.location.href,
-          hasSession: !!(await supabase.auth.getSession()).data.session
-        });
-
-        // Don't clear state data until after we've handled the callback
-        // sessionStorage.removeItem('spotify_auth_state');
-        // localStorage.removeItem('spotify_auth_state');
-
-        // First, check if this is a Supabase auth callback
-        const { data: { session }, error: supabaseError } = await supabase.auth.getSession();
-        
-        if (supabaseError) {
-          console.error('Supabase auth error:', {
-            error: supabaseError,
-            url: window.location.href,
-            params: Object.fromEntries(searchParams.entries()),
-            timestamp: new Date().toISOString(),
-            environment: process.env.NODE_ENV
-          });
-          throw supabaseError;
-        }
-
-        // If we have a session, handle Spotify token exchange if needed
-        if (session) {
-          // Enhanced session logging
-          console.log('Session details:', {
-            timestamp: new Date().toISOString(),
-            environment: process.env.NODE_ENV,
-            provider: session.user?.app_metadata?.provider,
-            userId: session.user?.id,
-            hasSpotifyTokens: !!session.user?.user_metadata?.spotify_tokens,
-            hasAccessToken: !!session.access_token,
-            metadata: session.user?.user_metadata,
-            appMetadata: session.user?.app_metadata,
-            currentUrl: window.location.href,
-            hasLocalStorage: !!localStorage.getItem('auth_redirect'),
-            hasSessionStorage: !!sessionStorage.getItem('spotify_auth_state')
-          });
-
-          // If this was a Spotify auth and we don't have tokens, we need to exchange the code
-          if (session.user?.app_metadata?.provider === 'spotify') {
-            const code = searchParams.get('code');
-            
-            if (code && !session.user?.user_metadata?.spotify_tokens) {
-              console.log('Initiating Spotify token exchange...');
-              
-              try {
-                // Exchange the code for tokens
-                const spotifyService = SpotifyService.getInstance();
-                const success = await spotifyService.handleCallback(code, 'supabase-auth');
-                
-                if (!success) {
-                  // If token exchange fails, sign out and redirect to login
-                  await supabase.auth.signOut();
-                  throw new Error('Failed to exchange Spotify tokens. Please try logging in again.');
-                }
-
-                // Refresh the session to get the updated tokens
-                const { error: refreshError } = await supabase.auth.refreshSession();
-                if (refreshError) {
-                  // If session refresh fails, sign out and redirect to login
-                  await supabase.auth.signOut();
-                  throw refreshError;
-                }
-
-                console.log('Spotify token exchange completed successfully');
-              } catch (tokenError) {
-                console.error('Token exchange failed:', tokenError);
-                // Sign out and redirect to login with error message
-                await supabase.auth.signOut();
-                throw new Error('Failed to complete Spotify authentication. Please try again.');
-              }
-            }
-          }
-
-          // Get the return URL from localStorage if it exists
-          const returnTo = localStorage.getItem('auth_redirect') || '/';
-          localStorage.removeItem('auth_redirect');
-          
-          // Navigate to the return URL
-          navigate(returnTo, { replace: true });
-          return;
-        }
-
-        // If no session, check for direct Spotify integration callback
+        // First, check if this is a direct Spotify integration callback
         const code = searchParams.get('code');
         const state = searchParams.get('state');
         const error = searchParams.get('error');
@@ -128,7 +59,7 @@ export function AuthCallback() {
           throw new Error(`Spotify authorization error: ${error}${error_description ? ` - ${error_description}` : ''}`);
         }
 
-        // Handle direct Spotify integration
+        // Handle direct Spotify integration if we have a code and state
         if (code && state) {
           let storedStateData = sessionStorage.getItem('spotify_auth_state');
           if (!storedStateData) {
@@ -159,17 +90,21 @@ export function AuthCallback() {
             throw new Error('Failed to complete Spotify integration');
           }
 
+          // Get stored return path
+          const returnPathData = getStoredReturnPath();
+          
           // Handle playlist export if needed
-          if (stateData.playlistId) {
+          if (stateData.playlistId || (returnPathData && returnPathData.playlistId)) {
+            const playlistId = stateData.playlistId || returnPathData.playlistId;
             console.log('Starting playlist export:', {
-              playlistId: stateData.playlistId,
+              playlistId,
               isPublic: stateData.isPublic,
               description: stateData.description
             });
 
             const exportService = PlaylistExportService.getInstance();
             const result = await exportService.exportPlaylist(
-              stateData.playlistId,
+              playlistId,
               'spotify',
               {
                 isPublic: stateData.isPublic || false,
@@ -178,16 +113,18 @@ export function AuthCallback() {
               }
             );
 
-            // Clean up storage only after successful export
+            // Clean up storage
             sessionStorage.removeItem('spotify_auth_state');
             localStorage.removeItem('spotify_auth_state');
+            sessionStorage.removeItem('spotify_return_path');
+            localStorage.removeItem('spotify_return_path');
 
             if (result.success) {
               console.log('Export successful:', {
-                playlistId: stateData.playlistId,
+                playlistId,
                 url: result.url
               });
-              navigate(`/playlist/${stateData.playlistId}?export=success&url=${encodeURIComponent(result.url)}`, { replace: true });
+              navigate(`/playlist/${playlistId}?export=success&url=${encodeURIComponent(result.url)}`, { replace: true });
               return;
             } else {
               console.error('Export failed:', result);
@@ -198,8 +135,37 @@ export function AuthCallback() {
           // Clean up storage
           sessionStorage.removeItem('spotify_auth_state');
           localStorage.removeItem('spotify_auth_state');
+          sessionStorage.removeItem('spotify_return_path');
+          localStorage.removeItem('spotify_return_path');
 
-          navigate(stateData.returnTo || '/settings', { replace: true });
+          // Navigate to the stored return path or fallback to settings
+          const returnPath = returnPathData?.path || stateData.returnTo || '/settings';
+          navigate(returnPath, { replace: true });
+          return;
+        }
+
+        // Check if this is a Supabase auth callback
+        const { data: { session }, error: supabaseError } = await supabase.auth.getSession();
+        
+        if (supabaseError) {
+          console.error('Supabase auth error:', {
+            error: supabaseError,
+            url: window.location.href,
+            params: Object.fromEntries(searchParams.entries()),
+            timestamp: new Date().toISOString(),
+            environment: process.env.NODE_ENV
+          });
+          throw supabaseError;
+        }
+
+        // If we have a session, handle the auth redirect
+        if (session) {
+          // Get the return URL from localStorage if it exists
+          const returnTo = localStorage.getItem('auth_redirect') || '/';
+          localStorage.removeItem('auth_redirect');
+          
+          // Navigate to the return URL
+          navigate(returnTo, { replace: true });
           return;
         }
 
@@ -224,9 +190,16 @@ export function AuthCallback() {
         // Clean up any stale state
         sessionStorage.removeItem('spotify_auth_state');
         localStorage.removeItem('spotify_auth_state');
+        sessionStorage.removeItem('spotify_return_path');
+        localStorage.removeItem('spotify_return_path');
         localStorage.removeItem('auth_redirect');
+
+        // Get stored return path for error redirect
+        const returnPathData = getStoredReturnPath();
+        const returnPath = returnPathData?.path || '/settings';
+        
         setTimeout(() => {
-          navigate('/settings', { replace: true });
+          navigate(returnPath, { replace: true });
         }, 3000);
       }
     };

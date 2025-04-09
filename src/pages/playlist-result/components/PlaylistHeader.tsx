@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { Playlist, Song } from '../../../types/database';
+import { playlistService } from '../../../services/playlistService';
 
 interface PlaylistHeaderProps {
   playlist: Playlist & { songs: Song[] };
@@ -8,6 +10,25 @@ interface PlaylistHeaderProps {
 
 export function PlaylistHeader({ playlist, onExportClick }: PlaylistHeaderProps) {
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const navigate = useNavigate();
+
+  const handleDelete = async () => {
+    if (!window.confirm('Are you sure you want to delete this playlist? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      await playlistService.deletePlaylist(playlist.id);
+      navigate('/playlists');
+    } catch (error) {
+      console.error('Failed to delete playlist:', error);
+      alert('Failed to delete playlist. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="glass-card p-8 rounded-2xl depth-3 relative overflow-hidden">
@@ -31,6 +52,18 @@ export function PlaylistHeader({ playlist, onExportClick }: PlaylistHeaderProps)
 
         {/* Actions */}
         <div className="flex items-center space-x-3">
+          {/* Delete Button */}
+          <button
+            onClick={handleDelete}
+            disabled={isDeleting}
+            className="flex items-center space-x-2 px-6 py-3 bg-red-600 text-white rounded-xl text-base font-medium transition-all duration-300 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            <span>{isDeleting ? 'Deleting...' : 'Delete'}</span>
+          </button>
+
           {/* Export Button */}
           <button
             onClick={onExportClick}

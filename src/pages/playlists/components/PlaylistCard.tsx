@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Playlist } from '../../../types/database';
+import { playlistService } from '../../../services/playlistService';
 
 interface PlaylistCardProps {
   playlist: Playlist;
+  onDelete?: () => void;
 }
 
-export function PlaylistCard({ playlist }: PlaylistCardProps) {
+export function PlaylistCard({ playlist, onDelete }: PlaylistCardProps) {
   const [isExporting, setIsExporting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -32,6 +35,26 @@ export function PlaylistCard({ playlist }: PlaylistCardProps) {
       console.error('Export failed:', error);
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!window.confirm('Are you sure you want to delete this playlist? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      await playlistService.deletePlaylist(playlist.id);
+      onDelete?.();
+    } catch (error) {
+      console.error('Failed to delete playlist:', error);
+      alert('Failed to delete playlist. Please try again.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -93,19 +116,33 @@ export function PlaylistCard({ playlist }: PlaylistCardProps) {
         </div>
 
         {/* Actions */}
-        <div className="mt-4 flex justify-between">
-          <Link
-            to={`/playlist/${playlist.id}`}
-            className="px-3 py-1 bg-[#1DB954] text-white rounded-full text-sm font-medium hover:bg-opacity-90 transition"
-          >
-            View
-          </Link>
+        <div className="mt-4 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <Link
+              to={`/playlist/${playlist.id}`}
+              className="px-3 py-1 bg-[#1DB954] text-white rounded-full text-sm font-medium hover:bg-opacity-90 transition"
+            >
+              View
+            </Link>
+            <button
+              onClick={handleExport}
+              disabled={isExporting}
+              className="px-3 py-1 border border-[#E8E8E8] text-white rounded-full text-sm font-medium hover:bg-[#E8E8E8] hover:text-black transition disabled:opacity-50"
+            >
+              {isExporting ? 'Exporting...' : 'Export'}
+            </button>
+          </div>
+          
+          {/* Delete Button */}
           <button
-            onClick={handleExport}
-            disabled={isExporting}
-            className="px-3 py-1 border border-[#E8E8E8] text-white rounded-full text-sm font-medium hover:bg-[#E8E8E8] hover:text-black transition disabled:opacity-50"
+            onClick={handleDelete}
+            disabled={isDeleting}
+            className="p-2 text-red-500 hover:text-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Delete playlist"
           >
-            {isExporting ? 'Exporting...' : 'Export'}
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
           </button>
         </div>
       </div>
