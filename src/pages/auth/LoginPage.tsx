@@ -3,17 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 export function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const { signIn, signInWithProvider } = useAuth();
+  const { signInWithProvider } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    
-    const { error: signInError } = await signIn({ email, password });
+  const handleSpotifySignIn = async () => {
+    const { error: signInError } = await signInWithProvider('spotify');
     if (signInError) {
       setError(signInError.message);
     } else {
@@ -21,81 +16,72 @@ export function LoginPage() {
     }
   };
 
-  const handleProviderSignIn = async (provider: 'spotify' | 'google') => {
-    const { error: signInError } = await signInWithProvider(provider);
-    if (signInError) {
-      setError(signInError.message);
-    }
-  };
-
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-light text-gray-900 tracking-wide">
-            Sign in to your account
-          </h2>
+    <div className="min-h-screen relative bg-gradient-to-br from-[#1a1a1a] to-black flex items-center justify-center p-4">
+      {/* Main Card */}
+      <div className="w-full max-w-5xl h-[600px] bg-black rounded-3xl shadow-2xl overflow-hidden flex">
+        {/* Left Section - Image */}
+        <div className="w-1/2 relative bg-black">
+          <div className="absolute inset-0">
+            <img 
+              src="/music-collage.jpg" 
+              alt="Music Collage" 
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-black/30" />
+          </div>
+          
+          <div className="relative z-10 p-16 h-full flex flex-col justify-center">
+            <h2 className="text-5xl font-thin tracking-[0.15em] text-white mb-4">
+              Create Your<br />Playlist
+            </h2>
+            <p className="text-lg text-gray-400 font-light tracking-wide">
+              Share your music taste<br />and get personalized playlists!
+            </p>
+          </div>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="text-sm text-red-700 font-light tracking-wide">{error}</div>
-            </div>
-          )}
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <input
-                type="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm font-light"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <input
-                type="password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm font-light"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-          </div>
 
-          <div>
+        {/* Right Section - Content */}
+        <div className="w-1/2 bg-[#121212] flex flex-col items-center justify-center relative">
+          {/* Subtle gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-br from-[#1DB954]/5 via-transparent to-transparent" />
+          
+          <div className="relative z-10 w-full max-w-[320px] px-8 flex flex-col items-center">
+            <div className="text-center mb-12">
+              <h1 className="text-5xl font-thin tracking-[0.15em] text-white mb-4">
+                SMART<span className="text-[#1DB954]">PLAYLIST</span>
+              </h1>
+              <p className="text-lg text-gray-400 font-light tracking-wide">
+                Sign in to create personalized playlists
+              </p>
+            </div>
+
+            {error && (
+              <div className="w-full bg-red-900/20 border border-red-500/20 rounded-lg p-3 mb-6 backdrop-blur-sm">
+                <p className="text-red-400 text-sm font-light text-center">{error}</p>
+              </div>
+            )}
+
+            {/* Spotify Button */}
             <button
-              type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-light tracking-wide rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              onClick={handleSpotifySignIn}
+              className="w-full bg-[#1DB954] text-white px-4 py-3 rounded-lg transition-colors duration-200 hover:bg-[#1ed760]"
             >
-              Sign in
+              <div className="flex items-center justify-center gap-2">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.371-.721.53-1.07.29-3.29-2.02-7.43-2.47-12.31-1.35-.47.11-.95-.16-1.06-.63-.11-.47.16-.95.63-1.06 5.35-1.23 10.01-.68 13.7 1.69.35.22.48.74.26 1.11zm1.47-3.27c-.3.46-.84.65-1.29.35-3.76-2.32-9.51-2.99-13.97-1.64-.58.18-1.19-.15-1.37-.73-.18-.58.15-1.19.73-1.37 5.09-1.55 11.42-.78 15.77 1.91.46.29.65.83.35 1.29zm.13-3.41c-4.51-2.68-11.95-2.93-16.28-1.62-.69.21-1.42-.17-1.63-.86-.21-.69.17-1.42.86-1.63 4.95-1.5 13.19-1.21 18.38 1.86.61.36.81 1.16.45 1.77-.36.61-1.16.81-1.77.45z"/>
+                </svg>
+                <span className="text-base font-medium">Continue with Spotify</span>
+              </div>
             </button>
-          </div>
-        </form>
 
-        <div className="mt-6">
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300" />
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-gray-50 text-gray-500 font-light tracking-wide">
-                Or continue with
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-6 grid grid-cols-2 gap-3">
-            <button
-              onClick={() => handleProviderSignIn('spotify')}
-              className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-light tracking-wide text-gray-500 hover:bg-gray-50"
-            >
-              <span className="sr-only">Sign in with Spotify</span>
-              Spotify
-            </button>
-            
+            {/* Terms Text */}
+            <p className="text-xs text-gray-500 text-center mt-8 font-light">
+              By continuing, you agree to our{' '}
+              <a href="/terms" className="text-[#1DB954] hover:underline">Terms of Service</a>
+              {' '}and{' '}
+              <a href="/privacy" className="text-[#1DB954] hover:underline">Privacy Policy</a>
+            </p>
           </div>
         </div>
       </div>

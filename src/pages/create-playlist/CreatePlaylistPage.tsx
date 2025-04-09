@@ -65,79 +65,63 @@ export function CreatePlaylistPage() {
         }
       );
 
-      try {
-        // Parse the generated songs and add them to the playlist
-        const songs = JSON.parse(generatedSongs);
-        
-        if (!Array.isArray(songs)) {
-          throw new Error('Generated songs must be an array');
-        }
-        
-        // Process each song, sanitizing data to prevent errors
-        for (const songData of songs) {
-          // Ensure the song has required fields
-          if (!songData.title || !songData.artist) {
-            console.warn('Skipping song with missing required fields:', songData);
-            continue;
-          }
-          
-          // Normalize the song data to prevent unexpected fields
-          const sanitizedSong = {
-            title: String(songData.title).trim(),
-            artist: String(songData.artist).trim(),
-            album: songData.album ? String(songData.album).trim() : null,
-            duration: songData.duration ? Number(songData.duration) : undefined,
-            year: songData.year ? Number(songData.year) : null,
-            bpm: songData.bpm ? Number(songData.bpm) : null,
-            key: songData.key ? String(songData.key).trim() : null,
-            genre: songData.genre ? String(songData.genre).trim() : undefined
-          };
-          
-          // Add the sanitized song to the playlist
-          await playlistService.addSongToPlaylist(playlist.id, sanitizedSong);
-        }
-      } catch (parseError) {
-        console.error('Error parsing or processing generated songs:', parseError);
-        throw new Error('Failed to process generated songs. Please try again.');
+      // Parse the generated songs JSON
+      const songs = JSON.parse(generatedSongs);
+      
+      // Add each song to the playlist
+      for (const song of songs) {
+        await playlistService.addSongToPlaylist(playlist.id, {
+          title: song.title,
+          artist: song.artist,
+          album: song.album,
+          duration: song.duration,
+          year: song.year,
+          bpm: song.bpm,
+          key: song.key
+        });
       }
 
+      // Navigate to the result page
       navigate(`/playlist-result/${playlist.id}`);
     } catch (err) {
-      console.error('Error generating playlist:', err);
-      setError(
-        err instanceof Error 
-          ? err.message
-          : 'Failed to generate playlist. Please try again.'
-      );
+      console.error('Error creating playlist:', err);
+      setError('Failed to create playlist. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gradient-to-b from-[var(--dark-bg)] via-[var(--dark-surface)] to-[var(--dark-bg)]">
-        <div className="max-w-4xl mx-auto px-4 pt-24 pb-12">
-          <div className="space-y-12">
+      <div className="min-h-screen animated-gradient particles relative overflow-hidden">
+        {/* Animated background overlay */}
+        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm"></div>
+        
+        {/* Main content */}
+        <div className="relative z-10 max-w-4xl mx-auto px-4 pt-24 pb-12">
+          <div className="space-y-12 animate-fade-in">
             {/* Header */}
             <div className="text-center space-y-6">
-              <h1 className="text-6xl font-extralight bg-gradient-to-r from-white via-gray-200 to-gray-300 bg-clip-text text-transparent tracking-wider">
+              <h1 className="text-6xl font-extralight gradient-text tracking-wider animate-slide-in">
                 What music inspires you?
               </h1>
-              <p className="text-xl text-gray-300 max-w-2xl mx-auto font-extralight tracking-wider">
+              <p className="text-xl text-gray-300 max-w-2xl mx-auto font-extralight tracking-wider animate-slide-in" style={{ animationDelay: '0.2s' }}>
                 Create personalized playlists with AI-powered music recommendations.
               </p>
             </div>
 
             {/* Main Form Section */}
-            <div className="card backdrop-blur-sm bg-[var(--dark-card)]/90 p-8 rounded-2xl border border-[var(--dark-accent)]/10">
+            <div className="glass-card depth-3 p-8 rounded-2xl card-hover transition-all duration-300 animate-slide-up" style={{ animationDelay: '0.4s' }}>
               <PlaylistForm
                 initialData={initialFormData}
                 onSubmit={handleSubmit}
                 loading={loading}
               />
               {error && (
-                <div className="mt-6 p-4 bg-red-900/20 border border-red-500/50 rounded-lg text-red-200 backdrop-blur-sm font-extralight tracking-wider">
-                  {error}
+                <div className="mt-6 p-4 bg-red-900/20 border border-red-500/50 rounded-lg text-red-200 glass-dark animate-fade-in">
+                  <div className="font-extralight tracking-wider">
+                    {error}
+                  </div>
                 </div>
               )}
             </div>
@@ -145,14 +129,11 @@ export function CreatePlaylistPage() {
             {/* Loading State */}
             {loading && (
               <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-                <div className="bg-[var(--dark-card)] p-8 rounded-2xl shadow-2xl flex flex-col items-center space-y-4">
-                  <div className="relative">
-                    <div className="w-16 h-16 border-4 border-[var(--dark-accent)] rounded-full animate-spin">
-                      <div className="absolute top-0 left-0 w-16 h-16 border-t-4 border-[var(--primary-color)] rounded-full"></div>
-                    </div>
+                <div className="glass-card p-8 rounded-xl text-center space-y-4 max-w-md mx-auto animate-scale">
+                  <div className="loading-pulse inline-block">
+                    <div className="w-16 h-16 border-4 border-[var(--primary-color)] border-t-transparent rounded-full animate-spin"></div>
                   </div>
-                  <p className="text-xl font-extralight text-gray-200 tracking-wider">Crafting your perfect playlist...</p>
-                  <p className="text-sm text-gray-400 font-extralight tracking-wider">This might take a moment</p>
+                  <p className="text-lg font-light text-gray-200">Creating your perfect playlist...</p>
                 </div>
               </div>
             )}

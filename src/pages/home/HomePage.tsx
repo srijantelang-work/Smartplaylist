@@ -1,7 +1,6 @@
 import { useAuth } from '../../hooks/useAuth';
 import { Link } from 'react-router-dom';
 import { useEffect, useRef } from 'react';
-import backgroundGif from '../../assets/images/fxVE.gif';
 
 export function HomePage() {
   const { user } = useAuth();
@@ -145,7 +144,7 @@ export function HomePage() {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center pt-16 overflow-hidden">
+      <section className="relative min-h-[calc(100vh-8rem)] flex items-center justify-center overflow-hidden px-4 sm:px-6">
         {/* Animation Canvas */}
         <canvas
           ref={canvasRef}
@@ -158,28 +157,30 @@ export function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-r from-black via-transparent to-black opacity-50" />
         
         {/* Content Container */}
-        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto">
+        <div className="relative z-10 text-center w-full max-w-4xl mx-auto flex flex-col items-center justify-center">
           {/* Title with refined typography */}
-          <div className="relative mb-8">
-            <h1 className="text-5xl md:text-8xl font-thin mb-2 text-white tracking-[0.2em] bg-clip-text text-transparent bg-gradient-to-r from-white via-white/90 to-white/80 font-display">
+          <div className="relative mb-8 sm:mb-12 w-full flex flex-col items-center">
+            <h1 className="text-4xl sm:text-5xl md:text-8xl font-thin mb-2 text-white tracking-[0.2em] bg-clip-text text-transparent bg-gradient-to-r from-white via-white/90 to-white/80 font-display whitespace-normal sm:whitespace-nowrap px-4">
               SMART<span className="font-thin text-[#1DB954]">PLAYLIST</span>
             </h1>
             {/* Subtle line accent */}
-            <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 w-24 h-[1px] bg-[#1DB954]/30" />
+            <div className="w-24 h-[1px] bg-[#1DB954]/30 mt-4 sm:mt-8" />
           </div>
 
           {/* Subtitle with refined typography */}
-          <p className="text-lg md:text-2xl mb-12 text-white/80 max-w-xl mx-auto animate-fade-in-delay font-light leading-relaxed tracking-[0.15em]">
-            Create personalized playlists that match your mood,{' '}
-            <span className="text-[#1DB954]/90">powered by artificial intelligence</span>
-          </p>
+          <div className="w-full max-w-2xl mx-auto mb-8 sm:mb-16 px-4">
+            <p className="text-base sm:text-lg md:text-2xl text-white/80 animate-fade-in-delay font-light leading-relaxed tracking-[0.15em]">
+              Create personalized playlists that match your mood,{' '}
+              <span className="text-[#1DB954]/90">powered by artificial intelligence</span>
+            </p>
+          </div>
 
           {/* Buttons with refined styling */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-fade-in-delay-2">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-fade-in-delay-2 w-full max-w-lg mx-auto px-4">
             {user ? (
               <Link
                 to="/create-playlist"
-                className="group relative w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-[25px] text-base overflow-hidden transition-all duration-300 hover:rounded-[20px] music-note-click"
+                className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-[25px] text-base overflow-hidden transition-all duration-300 hover:rounded-[20px] music-note-click"
                 onClick={(e) => {
                   const notes = ['♪', '♫', '♬', '♩', '𝄞'];
                   for (let i = 0; i < 6; i++) {
@@ -206,8 +207,8 @@ export function HomePage() {
             ) : (
               <>
                 <Link
-                  to="/auth/signup"
-                  className="group relative w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-[25px] text-base overflow-hidden transition-all duration-300 hover:rounded-[20px] music-note-click"
+                  to="/auth/login"
+                  className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-[25px] text-base overflow-hidden transition-all duration-300 hover:rounded-[20px] music-note-click"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-[#1DB954] via-[#23e025] to-[#1DB954] bg-[length:200%_100%] animate-gradient-x opacity-90 group-hover:opacity-100 rounded-[25px] group-hover:rounded-[20px] transition-all duration-300" />
                   <div className="absolute inset-0 opacity-0 group-hover:opacity-20 bg-white transition-opacity duration-300 rounded-[25px] group-hover:rounded-[20px]" />
@@ -221,7 +222,7 @@ export function HomePage() {
                 </Link>
                 <Link
                   to="/auth/login"
-                  className="group relative w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-[25px] text-base overflow-hidden transition-all duration-300 bg-black/20 hover:bg-black/40 border border-white/10 hover:border-white/20 music-note-click"
+                  className="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-[25px] text-base overflow-hidden transition-all duration-300 bg-black/20 hover:bg-black/40 border border-white/10 hover:border-white/20 music-note-click"
                   onClick={(e) => {
                     const notes = ['♪', '♫', '♬', '♩', '𝄞'];
                     for (let i = 0; i < 6; i++) {
@@ -244,10 +245,11 @@ export function HomePage() {
       </section>
 
       {/* Demo Video Section */}
-      <section className="py-20 bg-black">
-        <div className="container mx-auto px-4">
-          <h2 className="text-4xl font-thin text-center mb-8 tracking-[0.15em]">
-            See <span className="text-[#1DB954] font-thin">SmartPlaylist</span> in Action
+      <section className="py-4 sm:py-12 bg-black px-4 sm:px-6 -mt-16 sm:-mt-20">
+        <div className="container mx-auto">
+          <h2 className="text-4xl font-thin text-center mb-8 tracking-[0.15em] text-white relative drop-shadow-[0_2px_8px_rgba(255,255,255,0.3)]">
+            See <span className="text-[#1DB954] font-thin relative inline-block transform hover:scale-105 transition-transform duration-300">SmartPlaylist</span> in Action
+            <div className="absolute inset-0 blur-md bg-gradient-to-r from-[#1DB954]/10 via-white/5 to-[#1DB954]/10 -z-10 animate-pulse-slow"></div>
           </h2>
           <div className="max-w-4xl mx-auto rounded-xl overflow-hidden shadow-2xl">
             <video
@@ -266,7 +268,7 @@ export function HomePage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 bg-[#000000] relative overflow-hidden">
+      <section className="py-12 sm:py-20 bg-[#000000] relative overflow-hidden px-4 sm:px-6">
         {/* Animated background gradient */}
         <div 
           className="absolute inset-0 opacity-50"
@@ -358,7 +360,7 @@ export function HomePage() {
       </section>
 
       {/* How It Works Section */}
-      <section className="py-20 bg-gradient-to-b from-black to-[#323232] relative overflow-hidden">
+      <section className="py-12 sm:py-20 bg-gradient-to-b from-black to-[#323232] relative overflow-hidden px-4 sm:px-6">
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-5">
           <div className="absolute inset-0" style={{
@@ -451,7 +453,7 @@ export function HomePage() {
       </style>
 
       {/* Benefits Section */}
-      <section className="py-20 bg-[#121212] relative overflow-hidden">
+      <section className="py-12 sm:py-20 bg-[#121212] relative overflow-hidden px-4 sm:px-6">
         <div className="container mx-auto px-4">
           <h2 className="text-4xl font-thin text-center mb-16 tracking-[0.15em]">
             Benefits & <span className="text-[#1DB954] font-thin">Features</span>
@@ -512,7 +514,7 @@ export function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 bg-black">
+      <section className="py-12 sm:py-20 bg-black px-4 sm:px-6">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-4xl font-thin mb-6 tracking-[0.15em] text-center">
             Ready to Create Your Perfect Playlist?
@@ -689,7 +691,7 @@ export function HomePage() {
 
 const features = [
   {
-    icon: '��',
+    icon: '🤖',
     title: 'AI-Powered Recommendations',
     description: 'Advanced AI algorithms analyze your music taste to create perfectly tailored playlists',
   },
@@ -710,12 +712,6 @@ const steps = [
     title: 'Sign Up',
     description: 'Create your account and set your music preferences',
     image: '/loginpage.jpeg'
-  },
-  
-  {
-    title: 'Explore Homepage',
-    description: 'Browse through our features and discover what we offer',
-    image: '/homepage.jpg'
   },
   {
     title: 'Create Playlist',

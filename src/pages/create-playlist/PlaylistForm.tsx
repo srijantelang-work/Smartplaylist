@@ -40,15 +40,6 @@ export function PlaylistForm({ initialData, onSubmit, loading }: PlaylistFormPro
     onSubmit(formData);
   };
 
-  const toggleGenre = (genre: string) => {
-    setFormData(prev => ({
-      ...prev,
-      genres: prev.genres.includes(genre)
-        ? prev.genres.filter(g => g !== genre)
-        : [...prev.genres, genre]
-    }));
-  };
-
   return (
     <form onSubmit={handleSubmit} className="space-y-10">
       {/* Prompt Input */}
@@ -62,7 +53,7 @@ export function PlaylistForm({ initialData, onSubmit, loading }: PlaylistFormPro
             onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
             maxLength={maxPromptLength}
             placeholder="e.g., A high-energy workout playlist with motivational beats..."
-            className="w-full px-6 py-4 bg-[var(--dark-surface)] border border-[var(--dark-accent)] rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] focus:border-transparent transition-all duration-200 resize-none h-40 text-lg"
+            className="w-full px-6 py-4 bg-[#121212]/90 hover:bg-[#1a1a1a]/90 focus:bg-[#1a1a1a]/95 border border-[var(--glass-border)] rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] transition-all duration-300 resize-none h-40 text-lg backdrop-blur-sm"
             required
           />
           <div className="absolute bottom-3 right-3 text-sm text-gray-400">
@@ -77,7 +68,7 @@ export function PlaylistForm({ initialData, onSubmit, loading }: PlaylistFormPro
           <label className="text-lg font-medium text-gray-200">
             Number of Songs
           </label>
-          <span className="text-2xl font-semibold text-[var(--primary-color)]">
+          <span className="text-2xl font-semibold gradient-text">
             {formData.songCount}
           </span>
         </div>
@@ -89,7 +80,7 @@ export function PlaylistForm({ initialData, onSubmit, loading }: PlaylistFormPro
             step="5"
             value={formData.songCount}
             onChange={(e) => setFormData({ ...formData, songCount: parseInt(e.target.value) })}
-            className="w-full h-2 bg-[var(--dark-accent)] rounded-lg appearance-none cursor-pointer accent-[var(--primary-color)]"
+            className="w-full h-2 glass rounded-lg appearance-none cursor-pointer accent-[var(--primary-color)] hover:glass-dark transition-all duration-300"
           />
           <div className="flex justify-between text-sm text-gray-400 mt-2">
             <span>5 songs</span>
@@ -109,11 +100,11 @@ export function PlaylistForm({ initialData, onSubmit, loading }: PlaylistFormPro
               key={mood}
               type="button"
               onClick={() => setFormData({ ...formData, mood: formData.mood === mood ? null : mood })}
-              className={`px-6 py-3 rounded-xl text-base font-medium transition-all duration-200 transform hover:scale-105
-                ${formData.mood === mood
-                  ? 'bg-[var(--primary-color)] text-white shadow-lg shadow-[var(--primary-color)]/20'
-                  : 'bg-[var(--dark-surface)] text-gray-300 hover:bg-[var(--dark-accent)] hover:text-white'
-                }`}
+              className={`px-6 py-3 rounded-xl text-base font-medium transition-all duration-300 hover-lift ripple ${
+                formData.mood === mood
+                  ? 'bg-[var(--primary-color)] text-white depth-2'
+                  : 'glass-dark text-gray-300 hover:glass'
+              }`}
             >
               {mood.charAt(0).toUpperCase() + mood.slice(1)}
             </button>
@@ -131,12 +122,19 @@ export function PlaylistForm({ initialData, onSubmit, loading }: PlaylistFormPro
             <button
               key={genre}
               type="button"
-              onClick={() => toggleGenre(genre)}
-              className={`px-6 py-3 rounded-xl text-base font-medium transition-all duration-200 transform hover:scale-105
-                ${formData.genres.includes(genre)
-                  ? 'bg-[var(--primary-color)] text-white shadow-lg shadow-[var(--primary-color)]/20'
-                  : 'bg-[var(--dark-surface)] text-gray-300 hover:bg-[var(--dark-accent)] hover:text-white'
-                }`}
+              onClick={() => {
+                setFormData(prev => ({
+                  ...prev,
+                  genres: prev.genres.includes(genre)
+                    ? prev.genres.filter(g => g !== genre)
+                    : [...prev.genres, genre]
+                }));
+              }}
+              className={`px-6 py-3 rounded-xl text-base font-medium transition-all duration-300 hover-lift ripple ${
+                formData.genres.includes(genre)
+                  ? 'bg-[var(--primary-color)] text-white depth-2'
+                  : 'glass-dark text-gray-300 hover:glass'
+              }`}
             >
               {genre}
             </button>
@@ -148,13 +146,15 @@ export function PlaylistForm({ initialData, onSubmit, loading }: PlaylistFormPro
       <div className="flex items-center space-x-4 py-3">
         <button
           type="button"
-          onClick={() => setFormData({ ...formData, isPublic: !formData.isPublic })}
-          className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] focus:ring-offset-2 focus:ring-offset-[var(--dark-surface)]
-            ${formData.isPublic ? 'bg-[var(--primary-color)]' : 'bg-[var(--dark-accent)]'}`}
+          onClick={() => setFormData(prev => ({ ...prev, isPublic: !prev.isPublic }))}
+          className={`relative inline-flex h-7 w-14 items-center rounded-full transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] focus:ring-offset-2 focus:ring-offset-[var(--dark-surface)] ${
+            formData.isPublic ? 'bg-[var(--primary-color)]' : 'glass-dark'
+          }`}
         >
           <span
-            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-200 ease-in-out
-              ${formData.isPublic ? 'translate-x-8' : 'translate-x-1'}`}
+            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-lg transition-transform duration-300 ease-in-out ${
+              formData.isPublic ? 'translate-x-8' : 'translate-x-1'
+            }`}
           />
         </button>
         <span className="text-base text-gray-300">Make playlist public</span>
@@ -164,7 +164,11 @@ export function PlaylistForm({ initialData, onSubmit, loading }: PlaylistFormPro
       <button
         type="submit"
         disabled={loading || !formData.prompt.trim()}
-        className="w-full bg-[var(--primary-color)] text-white py-4 rounded-xl text-lg font-semibold transition-all duration-200 transform hover:scale-[1.02] hover:shadow-lg hover:shadow-[var(--primary-color)]/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none"
+        className={`w-full px-8 py-4 rounded-xl font-medium text-lg transition-all duration-300 hover-lift ripple ${
+          loading || !formData.prompt.trim()
+            ? 'glass-dark text-gray-400 cursor-not-allowed'
+            : 'bg-gradient-to-r from-[var(--primary-color)] to-[var(--primary-color-dark)] text-white depth-2 hover:depth-3'
+        }`}
       >
         {loading ? (
           <div className="flex items-center justify-center space-x-3">

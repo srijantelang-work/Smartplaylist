@@ -19,14 +19,6 @@ export function PlaylistHeader({ playlist, onExportClick }: PlaylistHeaderProps)
             <span>{playlist.songs.length} songs</span>
             <span>•</span>
             <span>{Math.round(playlist.total_duration / 60)} minutes</span>
-            {playlist.mood && (
-              <>
-                <span>•</span>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-[var(--primary-color)] bg-opacity-20 text-[var(--primary-color)]">
-                  {playlist.mood.charAt(0).toUpperCase() + playlist.mood.slice(1)}
-                </span>
-              </>
-            )}
           </div>
           {playlist.description && (
             <p className="mt-4 text-[#E8E8E8]">{playlist.description}</p>

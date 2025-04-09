@@ -95,7 +95,7 @@ export function Navigation({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Mobile header */}
-      <div className="sticky top-0 z-10 flex h-16 flex-shrink-0 bg-[#121212] md:hidden">
+      <div className="sticky top-0 z-50 flex h-16 flex-shrink-0 bg-[#121212] md:hidden">
         <button
           type="button"
           className="px-4 text-[#E8E8E8] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#1DB954]"
@@ -107,11 +107,11 @@ export function Navigation({ children }: { children: React.ReactNode }) {
           </svg>
         </button>
 
-        <div className="flex flex-1 justify-between px-4">
-          <div className="flex flex-1">
-            <Breadcrumbs />
-          </div>
-          <div className="ml-4 flex items-center">
+        <div className="flex flex-1 justify-between px-4 items-center">
+          <Link to="/" className="flex items-center">
+            <span className="text-white font-thin text-lg tracking-[0.15em]">SmartPlaylist</span>
+          </Link>
+          <div className="flex items-center">
             <UserDropdown />
           </div>
         </div>
@@ -119,22 +119,22 @@ export function Navigation({ children }: { children: React.ReactNode }) {
 
       {/* Mobile menu */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-40 md:hidden">
+        <div className="fixed inset-0 z-50 md:hidden">
           {/* Background overlay */}
           <div
-            className="fixed inset-0 bg-black bg-opacity-75"
+            className="fixed inset-0 bg-black bg-opacity-75 backdrop-blur-sm"
             onClick={() => setIsMobileMenuOpen(false)}
           />
 
           {/* Menu panel */}
-          <div className="fixed inset-y-0 left-0 w-full max-w-xs bg-[#121212] pt-5 pb-4 flex flex-col">
+          <div className="fixed inset-y-0 left-0 w-full max-w-[280px] bg-[#121212] pt-5 pb-4 flex flex-col">
             <div className="px-4 flex items-center justify-between">
-              <Link to="/" className="flex items-center space-x-2">
-                <span className="text-white font-thin text-2xl tracking-[0.2em]">SmartPlaylist</span>
+              <Link to="/" className="flex items-center" onClick={() => setIsMobileMenuOpen(false)}>
+                <span className="text-white font-thin text-xl tracking-[0.15em]">SmartPlaylist</span>
               </Link>
               <button
                 type="button"
-                className="text-[#E8E8E8] hover:text-white"
+                className="text-[#E8E8E8] hover:text-white p-2"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 <span className="sr-only">Close menu</span>
@@ -144,7 +144,7 @@ export function Navigation({ children }: { children: React.ReactNode }) {
               </button>
             </div>
 
-            <div className="mt-5 flex-1 px-2 space-y-1">
+            <div className="mt-5 flex-1 px-2 space-y-1 overflow-y-auto">
               {navigationItems.map((item) => {
                 const isActive = location.pathname === item.path;
                 return (
@@ -169,15 +169,13 @@ export function Navigation({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Main content */}
-      <div className="md:pl-64">
+      <div className="md:pl-64 min-h-screen flex flex-col">
         <div className="hidden md:flex md:sticky md:top-0 md:z-10 md:h-16 md:bg-[#121212] md:items-center md:justify-between md:px-4">
           <Breadcrumbs />
           <UserDropdown />
         </div>
-        <main className="py-6">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 md:px-8">
-            {children}
-          </div>
+        <main className="flex-1">
+          {children}
         </main>
       </div>
     </div>
