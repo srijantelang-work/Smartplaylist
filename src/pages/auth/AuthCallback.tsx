@@ -206,8 +206,25 @@ export function AuthCallback() {
         // If we get here without handling any callback, something went wrong
         throw new Error('Invalid authentication state');
       } catch (err) {
-        console.error('Error in auth callback:', err);
-        setError(err instanceof Error ? err.message : 'Authentication failed');
+        console.error('Auth callback error:', {
+          error: err,
+          timestamp: new Date().toISOString(),
+          url: window.location.href,
+          params: Object.fromEntries(searchParams.entries()),
+          hasSession: !!(await supabase.auth.getSession()).data.session,
+          environment: process.env.NODE_ENV,
+          spotifyState: {
+            localStorage: localStorage.getItem('spotify_auth_state'),
+            sessionStorage: sessionStorage.getItem('spotify_auth_state')
+          }
+        });
+        
+        setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+        
+        // Clean up any stale state
+        sessionStorage.removeItem('spotify_auth_state');
+        localStorage.removeItem('spotify_auth_state');
+        localStorage.removeItem('auth_redirect');
         setTimeout(() => {
           navigate('/settings', { replace: true });
         }, 3000);

@@ -345,23 +345,41 @@ export class SpotifyService {
   ): Promise<T> {
     await this.ensureValidToken();
 
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        'Authorization': `Bearer ${this.tokens!.access_token}`,
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    });
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          'Authorization': `Bearer ${this.tokens!.access_token}`,
+          'Content-Type': 'application/json',
+          ...options.headers,
+        },
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!response.ok) {
-      const error = data as SpotifyError;
-      throw new Error(`Spotify API error: ${error.error.message}`);
+      if (!response.ok) {
+        const error = data as SpotifyError;
+        console.error('Spotify API error:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: error,
+          endpoint: url,
+          timestamp: new Date().toISOString(),
+          environment: process.env.NODE_ENV
+        });
+        throw new Error(`Spotify API error: ${error.error?.message || 'Unknown error'}`);
+      }
+
+      return data as T;
+    } catch (error) {
+      console.error('Spotify API request failed:', {
+        error,
+        endpoint: url,
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV
+      });
+      throw error;
     }
-
-    return data as T;
   }
 
   /**
@@ -468,6 +486,11 @@ export class SpotifyService {
    */
   private async refreshToken(): Promise<void> {
     if (!this.tokens?.refresh_token) {
+      console.error('No refresh token available:', {
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV,
+        hasTokens: !!this.tokens
+      });
       throw new Error('No refresh token available');
     }
 
@@ -489,7 +512,9 @@ export class SpotifyService {
         console.error('Token refresh failed:', {
           status: response.status,
           statusText: response.statusText,
-          error: errorData
+          error: errorData,
+          timestamp: new Date().toISOString(),
+          environment: process.env.NODE_ENV
         });
         throw new Error(
           `Token refresh failed: ${errorData.error_description || errorData.error || response.statusText}`
@@ -498,7 +523,6 @@ export class SpotifyService {
 
       const data = await response.json();
       
-      // Note: Spotify may not always return a new refresh token
       this.tokens = {
         ...this.tokens,
         access_token: data.access_token,
@@ -514,18 +538,20 @@ export class SpotifyService {
       });
 
       if (updateError) {
-        console.error('Failed to update tokens in Supabase:', updateError);
+        console.error('Failed to update tokens in Supabase:', {
+          error: updateError,
+          timestamp: new Date().toISOString(),
+          environment: process.env.NODE_ENV
+        });
         throw new Error('Failed to update tokens in user profile');
       }
     } catch (error) {
-      console.error('Token refresh error:', error);
-      // Clear tokens to force re-authentication
-      this.tokens = null;
-      throw new Error(
-        error instanceof Error 
-          ? `Failed to refresh token: ${error.message}`
-          : 'Failed to refresh token'
-      );
+      console.error('Token refresh failed:', {
+        error,
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV
+      });
+      throw error;
     }
   }
 } 
