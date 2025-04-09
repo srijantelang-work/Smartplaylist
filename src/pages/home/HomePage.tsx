@@ -255,7 +255,7 @@ export function HomePage() {
             <video
               className="w-full aspect-video"
               controls
-              poster="/video-thumbnail.jpg"
+              poster="/video-thumbnail.jpeg"
             >
               <source src="/demo.mp4" type="video/mp4" />
               Your browser does not support the video tag.
