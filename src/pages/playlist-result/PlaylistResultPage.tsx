@@ -4,10 +4,11 @@ import { supabase } from '../../lib/supabase';
 import { PlaylistHeader } from './components/PlaylistHeader';
 import { PlaylistTable } from './components/PlaylistTable';
 import { PlaylistExport } from '../../components/playlist/PlaylistExport';
-import type { Playlist, Song } from '../../types/database';
+import type { Playlist, Song, Track } from '../../types/database';
 
 interface PlaylistWithSongs extends Playlist {
   songs: Song[];
+  tracks: Track[];
 }
 
 export function PlaylistResultPage() {
@@ -17,6 +18,19 @@ export function PlaylistResultPage() {
   const [exportUrl, setExportUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Transform songs to tracks format
+  const transformSongsToTracks = (songs: Song[]): Track[] => {
+    return songs.map(song => ({
+      id: song.id,
+      name: song.title,
+      artists: [song.artist], // Convert single artist to array format
+      album: song.album || '',
+      duration_ms: song.duration * 1000, // Convert seconds to milliseconds
+      preview_url: song.preview_url,
+      spotify_id: song.spotify_id
+    }));
+  };
 
   useEffect(() => {
     const fetchPlaylist = async () => {
@@ -32,7 +46,14 @@ export function PlaylistResultPage() {
         if (error) throw error;
         if (!playlist) throw new Error('Playlist not found');
 
-        setPlaylist(playlist);
+        // Transform the songs to tracks format
+        const playlistWithTracks: PlaylistWithSongs = {
+          ...playlist,
+          songs: playlist.songs,
+          tracks: transformSongsToTracks(playlist.songs)
+        };
+
+        setPlaylist(playlistWithTracks);
       } catch (err) {
         console.error('Error fetching playlist:', err);
         setError(err instanceof Error ? err.message : 'Failed to load playlist');
@@ -81,9 +102,13 @@ export function PlaylistResultPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[var(--dark-bg)] via-[var(--dark-surface)] to-[var(--dark-bg)] pt-20">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="space-y-8">
+    <div className="min-h-screen animated-gradient particles relative overflow-hidden pt-20">
+      {/* Animated background overlay */}
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm"></div>
+      
+      {/* Main content */}
+      <div className="relative z-10 max-w-7xl mx-auto px-4 py-8 space-y-8">
+        <div className="space-y-8 animate-fade-in">
           {/* Header */}
           <PlaylistHeader
             playlist={playlist}
@@ -92,19 +117,19 @@ export function PlaylistResultPage() {
 
           {/* Export Success Message */}
           {exportUrl && (
-            <div className="bg-[var(--primary-color)]/10 border border-[var(--primary-color)]/20 text-white p-4 rounded-xl flex items-center justify-between backdrop-blur-sm">
+            <div className="glass-card border-[var(--primary-color)]/20 p-4 rounded-xl flex items-center justify-between animate-slide-up">
               <div className="flex items-center gap-3">
                 <svg className="w-6 h-6 text-[var(--primary-color)]" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
-                <span className="text-lg">Playlist exported successfully!</span>
+                <span className="text-lg text-gray-200">Playlist exported successfully!</span>
               </div>
               <div className="flex items-center gap-4">
                 <a
                   href={exportUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[var(--primary-color)] hover:text-[var(--primary-color)]/80 font-medium"
+                  className="text-[var(--primary-color)] hover:text-[var(--primary-color)]/80 font-medium transition-colors"
                 >
                   View Playlist
                 </a>
@@ -121,8 +146,8 @@ export function PlaylistResultPage() {
           )}
 
           {/* Main Content */}
-          <div className="card backdrop-blur-sm bg-[var(--dark-card)]/90 rounded-2xl border border-[var(--dark-accent)]/10">
-            <PlaylistTable playlist={playlist} />
+          <div className="glass-card rounded-2xl depth-2 animate-slide-up" style={{ animationDelay: '0.2s' }}>
+            <PlaylistTable playlist={{ ...playlist, tracks: playlist.tracks }} />
           </div>
         </div>
       </div>
@@ -130,9 +155,9 @@ export function PlaylistResultPage() {
       {/* Export Modal */}
       {showExport && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[var(--dark-card)] rounded-2xl p-8 max-w-md w-full shadow-2xl border border-[var(--dark-accent)]/10">
+          <div className="glass-card rounded-2xl p-8 max-w-md w-full depth-3 animate-scale">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-white">Export Playlist</h2>
+              <h2 className="text-2xl font-light tracking-wider gradient-text">Export Playlist</h2>
               <button
                 onClick={() => setShowExport(false)}
                 className="text-gray-400 hover:text-gray-300 transition-colors"

@@ -89,6 +89,16 @@ export interface Song {
   created_at: string;
 }
 
+export interface Track {
+  id: string;
+  name: string;
+  artists: string[];
+  album: string;
+  duration_ms: number;
+  preview_url: string | null;
+  spotify_id: string | null;
+}
+
 export interface AnalyticsEvent {
   id: string;
   event_type: string;

@@ -105,14 +105,14 @@ export class SpotifyService {
   /**
    * Initiates the Spotify OAuth flow
    */
-  async authorize(exportDetails?: { playlistId: string; isPublic: boolean; description?: string }, isSupabaseAuth: boolean = false): Promise<void> {
+  async authorize(exportDetails?: { playlistId: string; isPublic: boolean; description?: string; state?: string }, isSupabaseAuth: boolean = false): Promise<void> {
     if (!this.clientId) {
       throw new Error('Spotify Client ID is not configured');
     }
 
     try {
-      // Generate and store state with additional metadata
-      const state = crypto.randomUUID();
+      // Use provided state or generate a new one
+      const state = exportDetails?.state || crypto.randomUUID();
       const stateData = {
         state,
         provider: 'spotify',

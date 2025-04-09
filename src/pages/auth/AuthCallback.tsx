@@ -29,9 +29,9 @@ export function AuthCallback() {
           hasSession: !!(await supabase.auth.getSession()).data.session
         });
 
-        // Clear any stale state that might cause loops
-        sessionStorage.removeItem('spotify_auth_state');
-        localStorage.removeItem('spotify_auth_state');
+        // Don't clear state data until after we've handled the callback
+        // sessionStorage.removeItem('spotify_auth_state');
+        // localStorage.removeItem('spotify_auth_state');
 
         // First, check if this is a Supabase auth callback
         const { data: { session }, error: supabaseError } = await supabase.auth.getSession();
@@ -136,10 +136,22 @@ export function AuthCallback() {
           }
 
           if (!storedStateData) {
+            console.error('No stored state found:', {
+              sessionStorage: sessionStorage.getItem('spotify_auth_state'),
+              localStorage: localStorage.getItem('spotify_auth_state'),
+              receivedState: state,
+              code: code
+            });
             throw new Error('No stored state found for Spotify integration');
           }
 
           const stateData = JSON.parse(storedStateData);
+          console.log('Processing Spotify integration:', {
+            stateData,
+            receivedState: state,
+            code: code
+          });
+
           const spotifyService = SpotifyService.getInstance();
           const success = await spotifyService.handleCallback(code, state);
           
@@ -147,12 +159,14 @@ export function AuthCallback() {
             throw new Error('Failed to complete Spotify integration');
           }
 
-          // Clean up storage
-          sessionStorage.removeItem('spotify_auth_state');
-          localStorage.removeItem('spotify_auth_state');
-
           // Handle playlist export if needed
           if (stateData.playlistId) {
+            console.log('Starting playlist export:', {
+              playlistId: stateData.playlistId,
+              isPublic: stateData.isPublic,
+              description: stateData.description
+            });
+
             const exportService = PlaylistExportService.getInstance();
             const result = await exportService.exportPlaylist(
               stateData.playlistId,
@@ -164,11 +178,26 @@ export function AuthCallback() {
               }
             );
 
+            // Clean up storage only after successful export
+            sessionStorage.removeItem('spotify_auth_state');
+            localStorage.removeItem('spotify_auth_state');
+
             if (result.success) {
+              console.log('Export successful:', {
+                playlistId: stateData.playlistId,
+                url: result.url
+              });
               navigate(`/playlist/${stateData.playlistId}?export=success&url=${encodeURIComponent(result.url)}`, { replace: true });
               return;
+            } else {
+              console.error('Export failed:', result);
+              throw new Error('Failed to export playlist to Spotify');
             }
           }
+
+          // Clean up storage
+          sessionStorage.removeItem('spotify_auth_state');
+          localStorage.removeItem('spotify_auth_state');
 
           navigate(stateData.returnTo || '/settings', { replace: true });
           return;

@@ -10,18 +10,22 @@ export function PlaylistHeader({ playlist, onExportClick }: PlaylistHeaderProps)
   const [showShareMenu, setShowShareMenu] = useState(false);
 
   return (
-    <div className="bg-[#323232] rounded-lg p-6">
-      <div className="flex items-start justify-between">
+    <div className="glass-card p-8 rounded-2xl depth-3 relative overflow-hidden">
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
         {/* Playlist Info */}
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">{playlist.name}</h1>
-          <div className="flex items-center space-x-4 text-[#E8E8E8]">
-            <span>{playlist.songs.length} songs</span>
-            <span>•</span>
-            <span>{Math.round(playlist.total_duration / 60)} minutes</span>
+        <div className="space-y-4">
+          <h1 className="text-4xl md:text-5xl font-bold gradient-text tracking-wider animate-slide-in">
+            {playlist.name}
+          </h1>
+          <div className="flex items-center space-x-4 text-gray-300 font-light tracking-wide">
+            <span className="text-lg">{playlist.songs.length} songs</span>
+            <span className="text-gray-500">•</span>
+            <span className="text-lg">{Math.round(playlist.total_duration / 60)} minutes</span>
           </div>
           {playlist.description && (
-            <p className="mt-4 text-[#E8E8E8]">{playlist.description}</p>
+            <p className="text-gray-300 font-light tracking-wide max-w-2xl">
+              {playlist.description}
+            </p>
           )}
         </div>
 
@@ -30,9 +34,9 @@ export function PlaylistHeader({ playlist, onExportClick }: PlaylistHeaderProps)
           {/* Export Button */}
           <button
             onClick={onExportClick}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#1DB954] text-white rounded-full text-sm font-medium hover:bg-opacity-90 transition"
+            className="flex items-center space-x-2 px-6 py-3 bg-[var(--primary-color)] text-white rounded-xl text-base font-medium transition-all duration-300 hover-lift ripple depth-2"
           >
-            <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+            <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
               <path d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" />
             </svg>
             <span>Export</span>
@@ -42,9 +46,9 @@ export function PlaylistHeader({ playlist, onExportClick }: PlaylistHeaderProps)
           <div className="relative">
             <button
               onClick={() => setShowShareMenu(!showShareMenu)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 border border-[#E8E8E8] text-white rounded-full text-sm font-medium hover:bg-[#323232] transition"
+              className="flex items-center space-x-2 px-6 py-3 glass-dark text-gray-300 rounded-xl text-base font-medium transition-all duration-300 hover-lift ripple"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
               </svg>
               <span>Share</span>
@@ -52,9 +56,9 @@ export function PlaylistHeader({ playlist, onExportClick }: PlaylistHeaderProps)
 
             {/* Share Menu */}
             {showShareMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-[#323232] rounded-lg shadow-lg py-1 z-10">
+              <div className="absolute right-0 mt-2 w-48 glass-dark rounded-xl shadow-lg py-2 z-10 depth-2">
                 <button
-                  className="w-full px-4 py-2 text-left text-[#E8E8E8] hover:bg-[#404040] transition"
+                  className="w-full px-4 py-3 text-left text-gray-300 hover:text-white hover:bg-white/5 transition-all duration-300"
                   onClick={() => {
                     navigator.clipboard.writeText(window.location.href);
                     setShowShareMenu(false);
