@@ -292,35 +292,21 @@ export class PlaylistExportService {
     const {
       targetTitle,
       targetArtist,
-      minSimilarity = 0.5,
-      requireExactMatch = false,
+      styleContext,
+      moodContext,
       debugLog = false,
+      requireExactMatch = false,
       duration,
       album
     } = options;
 
-    let bestMatch: { 
-      uri: string; 
-      score: number; 
-      confidence: number;
-      details?: any 
-    } | null = null;
-
-    // Extract version and features information from target
+    const cleanTargetTitle = this.normalizeTitle(targetTitle);
+    const cleanTargetArtist = this.normalizeArtist(targetArtist);
     const targetVersionInfo = this.extractVersionInfo(targetTitle);
     const targetFeatures = this.extractFeatures(targetTitle, targetArtist);
-    const cleanTargetTitle = this.normalizeTitle(targetVersionInfo.baseTitle);
-    const cleanTargetArtist = this.normalizeArtist(targetArtist);
 
-    if (debugLog) {
-      console.log('Matching details:', {
-        cleanTargetTitle,
-        cleanTargetArtist,
-        targetVersion: targetVersionInfo.version,
-        targetFeatures,
-        requireExactMatch
-      });
-    }
+    let bestMatch: string | null = null;
+    let bestScore = 0;
 
     for (const track of results) {
       try {
@@ -329,12 +315,12 @@ export class PlaylistExportService {
         const cleanTrackTitle = this.normalizeTitle(trackVersionInfo.baseTitle);
         const cleanTrackArtists = track.artists.map(a => this.normalizeArtist(a.name));
 
-        // Skip if title length difference is too large
-        if (Math.abs(cleanTrackTitle.length - cleanTargetTitle.length) > 15) {
+        // Relaxed title length difference check
+        if (Math.abs(cleanTrackTitle.length - cleanTargetTitle.length) > 20) {
           continue;
         }
 
-        // Calculate various similarity scores
+        // Calculate various similarity scores with adjusted weights
         const titleSimilarity = this.calculateSimilarity(cleanTargetTitle, cleanTrackTitle);
         const artistSimilarity = Math.max(
           ...cleanTrackArtists.map(artist => this.calculateSimilarity(cleanTargetArtist, artist))
@@ -351,72 +337,39 @@ export class PlaylistExportService {
         const durationSimilarity = duration && track.duration_ms ? 
           this.calculateDurationSimilarity(duration, track.duration_ms / 1000) : 0.5;
 
-        // Perfect match conditions (relaxed thresholds)
-        if (cleanTargetTitle === cleanTrackTitle && 
-            artistSimilarity > 0.8 &&
-            versionSimilarity > 0.8) {
+        // Relaxed perfect match conditions
+        if (titleSimilarity > 0.9 && artistSimilarity > 0.8) {
           return track.uri;
         }
 
-        // Calculate weighted score with adjusted weights
+        // Calculate weighted score with adjusted weights for more lenient matching
         const score = (
-          (titleSimilarity * 0.40) +
-          (artistSimilarity * 0.35) +
-          (versionSimilarity * 0.05) +
-          (featureSimilarity * 0.05) +
-          (albumSimilarity * 0.10) +
-          (durationSimilarity * 0.05)
+          (titleSimilarity * 0.35) +  // Reduced weight from 0.40
+          (artistSimilarity * 0.35) + // Same weight
+          (versionSimilarity * 0.10) + // Increased from 0.05
+          (featureSimilarity * 0.05) + // Same weight
+          (albumSimilarity * 0.10) +   // Same weight
+          (durationSimilarity * 0.05)  // Same weight
         );
 
-        // Calculate confidence level with relaxed thresholds
-        const confidence = (
-          (titleSimilarity > 0.8 ? 1 : titleSimilarity > 0.6 ? 0.5 : 0) +
-          (artistSimilarity > 0.8 ? 1 : artistSimilarity > 0.6 ? 0.5 : 0) +
-          (versionSimilarity > 0.7 ? 1 : versionSimilarity > 0.5 ? 0.5 : 0) +
-          (albumSimilarity > 0.7 ? 1 : albumSimilarity > 0.5 ? 0.5 : 0) +
-          (durationSimilarity > 0.8 ? 1 : durationSimilarity > 0.6 ? 0.5 : 0)
-        ) / 5;
-
         if (debugLog) {
-          console.log('Track match details:', {
+          console.log('Match scores:', {
             track: track.name,
-            artist: track.artists.map(a => a.name).join(', '),
+            artist: track.artists[0].name,
             titleSimilarity,
             artistSimilarity,
             versionSimilarity,
             featureSimilarity,
             albumSimilarity,
             durationSimilarity,
-            finalScore: score,
-            confidence,
-            popularity: track.popularity
+            totalScore: score
           });
         }
 
-        // Skip if exact match is required but similarity is too low
-        if (requireExactMatch && (titleSimilarity < 0.8 || artistSimilarity < 0.8)) {
-          continue;
-        }
-
-        // Update best match if this is better
-        if (score > minSimilarity && (!bestMatch || score > bestMatch.score)) {
-          bestMatch = { 
-            uri: track.uri, 
-            score,
-            confidence,
-            details: debugLog ? {
-              track: track.name,
-              artist: track.artists.map(a => a.name).join(', '),
-              titleSimilarity,
-              artistSimilarity,
-              versionSimilarity,
-              featureSimilarity,
-              albumSimilarity,
-              durationSimilarity,
-              score,
-              confidence
-            } : undefined
-          };
+        // Relaxed threshold for acceptable matches
+        if (score > 0.65 && score > bestScore) {  // Reduced from typical 0.75-0.80
+          bestScore = score;
+          bestMatch = track.uri;
         }
       } catch (error) {
         console.warn('Error processing track match:', error);
@@ -424,12 +377,7 @@ export class PlaylistExportService {
       }
     }
 
-    if (debugLog && bestMatch) {
-      console.log('Best match found:', bestMatch.details);
-    }
-
-    // Return match with relaxed confidence threshold
-    return (bestMatch && bestMatch.confidence >= 0.5) ? bestMatch.uri : null;
+    return bestMatch;
   }
 
   private calculateFeatureSimilarity(features1: string[], features2: string[]): number {
