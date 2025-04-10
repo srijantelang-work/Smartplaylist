@@ -41,33 +41,51 @@ export function PlaylistExport({ playlistId, className = '', onExportComplete }:
       const hasSpotifyTokens = user?.user_metadata?.spotify_tokens;
 
       if (!hasSpotifyTokens) {
-        // Store current path and playlist details before redirecting
-        const exportDetails = {
-          playlistId,
-          isPublic,
-          description: undefined,
-          returnPath: `/playlist/${playlistId}`,
-          state: crypto.randomUUID()
-        };
-
-        // Store export state in sessionStorage
+        // Generate a unique state for this export attempt
         const exportState = {
           isExporting: true,
           playlistId,
-          isPublic
+          isPublic,
+          timestamp: Date.now(),
+          state: crypto.randomUUID()
         };
-        
-        // Store in both sessionStorage and localStorage for redundancy
-        try {
-          sessionStorage.setItem('playlist_export_state', JSON.stringify(exportState));
-        } catch (e) {
-          console.warn('Failed to store export state in sessionStorage:', e);
+
+        // Store export state with multiple fallbacks
+        const storeState = () => {
+          const storageOptions = [
+            () => sessionStorage.setItem('playlist_export_state', JSON.stringify(exportState)),
+            () => localStorage.setItem('playlist_export_state', JSON.stringify(exportState)),
+            () => document.cookie = `playlist_export_state=${encodeURIComponent(JSON.stringify(exportState))}; path=/; max-age=3600;`
+          ];
+
+          let stored = false;
+          for (const store of storageOptions) {
+            try {
+              store();
+              stored = true;
+            } catch (e) {
+              console.warn('Storage attempt failed:', e);
+            }
+          }
+          return stored;
+        };
+
+        if (!storeState()) {
+          throw new Error('Failed to store export state. Please try again.');
         }
-        try {
-          localStorage.setItem('playlist_export_state', JSON.stringify(exportState));
-        } catch (e) {
-          console.warn('Failed to store export state in localStorage:', e);
-        }
+
+        // Store current path and playlist details before redirecting
+        const exportDetails = {
+          ...exportState,
+          description: undefined,
+          returnPath: `/playlist/${playlistId}`
+        };
+
+        console.log('Starting Spotify authorization:', {
+          timestamp: new Date().toISOString(),
+          exportState,
+          currentUrl: window.location.href
+        });
 
         // Start Spotify authorization process
         await spotifyService.authorize(exportDetails);
