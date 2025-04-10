@@ -1,6 +1,6 @@
 import { AuthProvider } from './contexts/AuthContext';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { AuthCallback } from './pages/auth/AuthCallback';
+import AuthCallback from './pages/auth/AuthCallback';
 import { LoginPage } from './pages/auth/LoginPage';
 import { CreatePlaylistPage } from './pages/create-playlist/CreatePlaylistPage';
 import { PlaylistResultPage } from './pages/playlist-result/PlaylistResultPage';

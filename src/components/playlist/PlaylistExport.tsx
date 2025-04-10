@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SpotifyService } from '../../services/spotifyService';
 import { PlaylistExportService } from '../../services/playlistExportService';
 import { useAuth } from '../../contexts/AuthContext';
@@ -14,6 +14,20 @@ export function PlaylistExport({ playlistId, className = '', onExportComplete }:
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+
+  // Check URL parameters for export status
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const exportStatus = params.get('export');
+    const exportUrl = params.get('url');
+
+    if (exportStatus === 'success' && exportUrl) {
+      onExportComplete?.({ success: true, url: exportUrl });
+      // Clean up URL parameters
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [onExportComplete]);
 
   const handleExport = async () => {
     try {
@@ -36,33 +50,60 @@ export function PlaylistExport({ playlistId, className = '', onExportComplete }:
           state: crypto.randomUUID()
         };
 
+        // Store export state in sessionStorage
+        sessionStorage.setItem('playlist_export_state', JSON.stringify({
+          isExporting: true,
+          playlistId,
+          isPublic
+        }));
+
         // Start Spotify authorization process
         await spotifyService.authorize(exportDetails);
-      } else {
-        // User is already connected to Spotify, proceed with export
-        const exportService = PlaylistExportService.getInstance();
-        const result = await exportService.exportPlaylist(
-          playlistId,
-          'spotify',
-          {
-            isPublic,
-            includeDescription: true
-          }
-        );
+        return; // Return early as we're redirecting
+      }
 
-        if (result.success) {
-          onExportComplete?.({ success: true, url: result.url });
-        } else {
-          throw new Error(result.error || 'Failed to export playlist');
+      // User is already connected to Spotify, proceed with export
+      const exportService = PlaylistExportService.getInstance();
+      const result = await exportService.exportPlaylist(
+        playlistId,
+        'spotify',
+        {
+          isPublic,
+          includeDescription: true
         }
+      );
+
+      if (result.success) {
+        onExportComplete?.({ success: true, url: result.url });
+      } else {
+        throw new Error(result.error || 'Failed to export playlist');
       }
     } catch (err) {
       console.error('Export error:', err);
       setError(err instanceof Error ? err.message : 'Failed to start export');
-      setIsExporting(false);
       onExportComplete?.({ success: false });
+    } finally {
+      setIsExporting(false);
+      // Clean up export state
+      sessionStorage.removeItem('playlist_export_state');
     }
   };
+
+  // Restore export state if returning from OAuth flow
+  useEffect(() => {
+    const storedState = sessionStorage.getItem('playlist_export_state');
+    if (storedState) {
+      try {
+        const state = JSON.parse(storedState);
+        if (state.playlistId === playlistId) {
+          setIsExporting(state.isExporting);
+          setIsPublic(state.isPublic);
+        }
+      } catch (e) {
+        console.error('Failed to parse stored export state:', e);
+      }
+    }
+  }, [playlistId]);
 
   return (
     <div className={`space-y-6 ${className}`}>
@@ -79,6 +120,7 @@ export function PlaylistExport({ playlistId, className = '', onExportComplete }:
               checked={isPublic}
               onChange={(e) => setIsPublic(e.target.checked)}
               className="w-4 h-4 rounded border-gray-600 text-blue-600 focus:ring-blue-500"
+              disabled={isExporting}
             />
             <label htmlFor="isPublic" className="text-sm text-gray-300">
               Make playlist public
