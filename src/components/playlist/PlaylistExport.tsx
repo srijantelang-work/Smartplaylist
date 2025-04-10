@@ -51,11 +51,23 @@ export function PlaylistExport({ playlistId, className = '', onExportComplete }:
         };
 
         // Store export state in sessionStorage
-        sessionStorage.setItem('playlist_export_state', JSON.stringify({
+        const exportState = {
           isExporting: true,
           playlistId,
           isPublic
-        }));
+        };
+        
+        // Store in both sessionStorage and localStorage for redundancy
+        try {
+          sessionStorage.setItem('playlist_export_state', JSON.stringify(exportState));
+        } catch (e) {
+          console.warn('Failed to store export state in sessionStorage:', e);
+        }
+        try {
+          localStorage.setItem('playlist_export_state', JSON.stringify(exportState));
+        } catch (e) {
+          console.warn('Failed to store export state in localStorage:', e);
+        }
 
         // Start Spotify authorization process
         await spotifyService.authorize(exportDetails);
@@ -86,6 +98,7 @@ export function PlaylistExport({ playlistId, className = '', onExportComplete }:
       setIsExporting(false);
       // Clean up export state
       sessionStorage.removeItem('playlist_export_state');
+      localStorage.removeItem('playlist_export_state');
     }
   };
 

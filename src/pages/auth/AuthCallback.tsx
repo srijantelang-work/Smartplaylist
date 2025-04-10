@@ -50,8 +50,8 @@ export default function AuthCallback() {
           // Get stored return path or default to home
           const storedReturnPath = localStorage.getItem('auth_redirect') || '/';
           
-          // Check if this was a Spotify connection attempt
-          const storedState = sessionStorage.getItem('playlist_export_state');
+          // Check if this was a Spotify connection attempt - check both sessionStorage and localStorage
+          const storedState = sessionStorage.getItem('playlist_export_state') || localStorage.getItem('playlist_export_state');
           if (storedState) {
             try {
               const exportState = JSON.parse(storedState);
@@ -81,6 +81,13 @@ export default function AuthCallback() {
                   }
                 );
 
+                // Only clean up storage after successful export
+                sessionStorage.removeItem('playlist_export_state');
+                localStorage.removeItem('playlist_export_state');
+                localStorage.removeItem('spotify_auth_return_path');
+                localStorage.removeItem('auth_redirect');
+                localStorage.removeItem('auth_state');
+
                 navigate(`/playlist/${exportState.playlistId}${
                   result.success 
                     ? `?export=success&url=${encodeURIComponent(result.url)}` 
@@ -90,6 +97,16 @@ export default function AuthCallback() {
               }
             } catch (e) {
               console.error('Failed to process stored export state:', e);
+              // On error, redirect back to the playlist if we can extract the ID
+              try {
+                const exportState = JSON.parse(storedState);
+                if (exportState.playlistId) {
+                  navigate(`/playlist/${exportState.playlistId}?export=error&message=${encodeURIComponent('Failed to connect to Spotify')}`);
+                  return;
+                }
+              } catch {
+                // If we can't even parse the state at all, continue to regular flow
+              }
             }
           }
 
