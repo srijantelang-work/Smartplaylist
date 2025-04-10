@@ -164,13 +164,11 @@ export class PlaylistExportService {
     });
 
     const attempts = [
-      // Attempt 1: Exact artist + title + album match
+      // Attempt 1: Exact artist + title match
       async () => {
-        const query = albumForMatch ? 
-          `artist:"${cleanArtist}" track:"${cleanTitle}" album:"${albumForMatch}"` :
-          `artist:"${cleanArtist}" track:"${cleanTitle}"`;
+        const query = `artist:"${cleanArtist}" track:"${cleanTitle}"`;
         console.log('Attempt 1 - Exact search:', { query });
-        const results = await this.spotifyService.searchTracks(query, 20);
+        const results = await this.spotifyService.searchTracks(query, 30);
         return this.findBestMatch(results, {
           targetTitle: cleanTitle,
           targetArtist: cleanArtist,
@@ -182,11 +180,12 @@ export class PlaylistExportService {
           album: albumForMatch
         });
       },
-      // Attempt 2: Artist + title with album consideration
+      // Attempt 2: Artist + partial title match
       async () => {
-        const query = `${cleanArtist} ${cleanTitle}`;
-        console.log('Attempt 2 - Artist + Title search:', { query });
-        const results = await this.spotifyService.searchTracks(query, 20);
+        const baseTitle = cleanTitle.split(' ').slice(0, 3).join(' '); // First 3 words
+        const query = `artist:"${cleanArtist}" ${baseTitle}`;
+        console.log('Attempt 2 - Artist + Partial Title search:', { query });
+        const results = await this.spotifyService.searchTracks(query, 30);
         return this.findBestMatch(results, {
           targetTitle: cleanTitle,
           targetArtist: cleanArtist,
@@ -197,29 +196,12 @@ export class PlaylistExportService {
           album: albumForMatch
         });
       },
-      // Attempt 3: Title + album search
+      // Attempt 3: Title + artist keywords
       async () => {
-        const query = albumForMatch ? 
-          `${cleanTitle} album:"${albumForMatch}"` :
-          cleanTitle;
-        console.log('Attempt 3 - Title + Album search:', { query });
-        const results = await this.spotifyService.searchTracks(query, 20);
-        return this.findBestMatch(results, {
-          targetTitle: cleanTitle,
-          targetArtist: cleanArtist,
-          styleContext,
-          moodContext,
-          debugLog: true,
-          duration: song.duration,
-          album: albumForMatch
-        });
-      },
-      // Attempt 4: Context-based search with relaxed matching
-      async () => {
-        const contextualTerms = [...styleContext.terms, ...moodContext.terms].slice(0, 2);
-        const query = `${cleanTitle} ${contextualTerms.join(' ')}`;
-        console.log('Attempt 4 - Context search:', { query });
-        const results = await this.spotifyService.searchTracks(query, 15);
+        const artistKeywords = cleanArtist.split(' ')[0]; // First word of artist
+        const query = `${cleanTitle} ${artistKeywords}`;
+        console.log('Attempt 3 - Title + Artist Keywords search:', { query });
+        const results = await this.spotifyService.searchTracks(query, 30);
         return this.findBestMatch(results, {
           targetTitle: cleanTitle,
           targetArtist: cleanArtist,
@@ -228,7 +210,25 @@ export class PlaylistExportService {
           debugLog: true,
           duration: song.duration,
           album: albumForMatch,
-          minSimilarity: 0.5 // More lenient similarity threshold for context search
+          minSimilarity: 0.5
+        });
+      },
+      // Attempt 4: Fuzzy search with album context
+      async () => {
+        const query = albumForMatch ? 
+          `${cleanTitle} ${cleanArtist.split(' ')[0]} album:"${albumForMatch}"` :
+          `${cleanTitle} ${cleanArtist.split(' ')[0]}`;
+        console.log('Attempt 4 - Fuzzy search:', { query });
+        const results = await this.spotifyService.searchTracks(query, 30);
+        return this.findBestMatch(results, {
+          targetTitle: cleanTitle,
+          targetArtist: cleanArtist,
+          styleContext,
+          moodContext,
+          debugLog: true,
+          duration: song.duration,
+          album: albumForMatch,
+          minSimilarity: 0.4
         });
       }
     ];
@@ -297,7 +297,8 @@ export class PlaylistExportService {
       debugLog = false,
       requireExactMatch = false,
       duration,
-      album
+      album,
+      minSimilarity = 0.6
     } = options;
 
     const cleanTargetTitle = this.normalizeTitle(targetTitle);
@@ -315,8 +316,8 @@ export class PlaylistExportService {
         const cleanTrackTitle = this.normalizeTitle(trackVersionInfo.baseTitle);
         const cleanTrackArtists = track.artists.map(a => this.normalizeArtist(a.name));
 
-        // Relaxed title length difference check
-        if (Math.abs(cleanTrackTitle.length - cleanTargetTitle.length) > 20) {
+        // More lenient title length check
+        if (Math.abs(cleanTrackTitle.length - cleanTargetTitle.length) > 25) {
           continue;
         }
 
@@ -337,19 +338,19 @@ export class PlaylistExportService {
         const durationSimilarity = duration && track.duration_ms ? 
           this.calculateDurationSimilarity(duration, track.duration_ms / 1000) : 0.5;
 
-        // Relaxed perfect match conditions
-        if (titleSimilarity > 0.9 && artistSimilarity > 0.8) {
+        // More lenient perfect match conditions
+        if (titleSimilarity > 0.85 && artistSimilarity > 0.75) {
           return track.uri;
         }
 
-        // Calculate weighted score with adjusted weights for more lenient matching
+        // Calculate weighted score with adjusted weights
         const score = (
-          (titleSimilarity * 0.35) +  // Reduced weight from 0.40
-          (artistSimilarity * 0.35) + // Same weight
-          (versionSimilarity * 0.10) + // Increased from 0.05
-          (featureSimilarity * 0.05) + // Same weight
-          (albumSimilarity * 0.10) +   // Same weight
-          (durationSimilarity * 0.05)  // Same weight
+          (titleSimilarity * 0.35) +
+          (artistSimilarity * 0.35) +
+          (versionSimilarity * 0.10) +
+          (featureSimilarity * 0.05) +
+          (albumSimilarity * 0.10) +
+          (durationSimilarity * 0.05)
         );
 
         if (debugLog) {
@@ -366,8 +367,8 @@ export class PlaylistExportService {
           });
         }
 
-        // Relaxed threshold for acceptable matches
-        if (score > 0.65 && score > bestScore) {  // Reduced from typical 0.75-0.80
+        // More lenient threshold for acceptable matches
+        if (score > minSimilarity && score > bestScore) {
           bestScore = score;
           bestMatch = track.uri;
         }
@@ -687,8 +688,9 @@ export class PlaylistExportService {
       const matchRate = (successfulMatches / totalSongs) * 100;
       console.log(`Export success rate: ${matchRate.toFixed(1)}% (${successfulMatches}/${totalSongs} songs)`);
 
-      if (matchRate < 50) {
-        throw new Error(`Low match rate: Only ${matchRate.toFixed(1)}% of songs were found on Spotify`);
+      // More lenient match rate threshold
+      if (matchRate < 40) {
+        throw new Error(`Very low match rate: Only ${matchRate.toFixed(1)}% of songs were found on Spotify`);
       }
 
       return {
