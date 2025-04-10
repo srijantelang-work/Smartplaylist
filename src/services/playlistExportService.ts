@@ -41,12 +41,24 @@ interface MoodContext {
 interface MatchOptions {
   targetTitle: string;
   targetArtist: string;
-  styleContext: StyleContext;
-  moodContext: MoodContext;
+  styleContext?: StyleContext;
+  moodContext?: MoodContext;
   minPopularity?: number;
   maxPopularity?: number;
   minSimilarity?: number;
   requireExactMatch?: boolean;
+  debugLog?: boolean;
+  duration?: number;
+  album?: string;
+}
+
+interface SpotifyTrack {
+  uri: string;
+  name: string;
+  artists: Array<{ name: string }>;
+  album?: { name: string };
+  duration_ms?: number;
+  popularity?: number;
 }
 
 export class PlaylistExportService {
@@ -126,7 +138,9 @@ export class PlaylistExportService {
   private async findSpotifyTrack(song: Song): Promise<string | null> {
     console.log('Finding Spotify track for:', {
       title: song.title,
-      artist: song.artist
+      artist: song.artist,
+      album: song.album,
+      duration: song.duration
     });
 
     const styleContext = this.extractStyleContext(song.title);
@@ -136,18 +150,25 @@ export class PlaylistExportService {
     const cleanArtist = this.cleanupArtist(song.artist);
     const isRemix = this.isRemixVersion(song.title);
 
+    // Convert null to undefined for album
+    const albumForMatch = song.album === null ? undefined : song.album;
+
     console.log('Cleaned track info:', {
       cleanTitle,
       cleanArtist,
+      album: albumForMatch,
+      duration: song.duration,
       styleContext,
       moodContext,
       isRemix
     });
 
     const attempts = [
-      // Attempt 1: Exact artist + title match
+      // Attempt 1: Exact artist + title + album match
       async () => {
-        const query = `artist:"${cleanArtist}" track:"${cleanTitle}"`;
+        const query = albumForMatch ? 
+          `artist:"${cleanArtist}" track:"${cleanTitle}" album:"${albumForMatch}"` :
+          `artist:"${cleanArtist}" track:"${cleanTitle}"`;
         console.log('Attempt 1 - Exact search:', { query });
         const results = await this.spotifyService.searchTracks(query, 20);
         return this.findBestMatch(results, {
@@ -155,13 +176,13 @@ export class PlaylistExportService {
           targetArtist: cleanArtist,
           styleContext,
           moodContext,
-          minPopularity: 0,
-          maxPopularity: 100,
           requireExactMatch: true,
-          debugLog: true
+          debugLog: true,
+          duration: song.duration,
+          album: albumForMatch
         });
       },
-      // Attempt 2: Artist + title with remix consideration
+      // Attempt 2: Artist + title with album consideration
       async () => {
         const query = `${cleanArtist} ${cleanTitle}`;
         console.log('Attempt 2 - Artist + Title search:', { query });
@@ -171,25 +192,43 @@ export class PlaylistExportService {
           targetArtist: cleanArtist,
           styleContext,
           moodContext,
-          minPopularity: 0,
-          maxPopularity: 100,
-          debugLog: true
+          debugLog: true,
+          duration: song.duration,
+          album: albumForMatch
         });
       },
-      // Attempt 3: Context-based search
+      // Attempt 3: Title + album search
+      async () => {
+        const query = albumForMatch ? 
+          `${cleanTitle} album:"${albumForMatch}"` :
+          cleanTitle;
+        console.log('Attempt 3 - Title + Album search:', { query });
+        const results = await this.spotifyService.searchTracks(query, 20);
+        return this.findBestMatch(results, {
+          targetTitle: cleanTitle,
+          targetArtist: cleanArtist,
+          styleContext,
+          moodContext,
+          debugLog: true,
+          duration: song.duration,
+          album: albumForMatch
+        });
+      },
+      // Attempt 4: Context-based search with relaxed matching
       async () => {
         const contextualTerms = [...styleContext.terms, ...moodContext.terms].slice(0, 2);
         const query = `${cleanTitle} ${contextualTerms.join(' ')}`;
-        console.log('Attempt 3 - Context search:', { query });
+        console.log('Attempt 4 - Context search:', { query });
         const results = await this.spotifyService.searchTracks(query, 15);
         return this.findBestMatch(results, {
           targetTitle: cleanTitle,
           targetArtist: cleanArtist,
           styleContext,
           moodContext,
-          minPopularity: 20,
-          maxPopularity: 90,
-          debugLog: true
+          debugLog: true,
+          duration: song.duration,
+          album: albumForMatch,
+          minSimilarity: 0.5 // More lenient similarity threshold for context search
         });
       }
     ];
@@ -246,139 +285,142 @@ export class PlaylistExportService {
     );
   }
 
-  private extractRemixer(title: string): string | null {
-    const remixPatterns = [
-      /\(([^)]+(?:remix|mix|edit|version|dub))\)/i,
-      /\[([^\]]+(?:remix|mix|edit|version|dub))\]/i,
-      /(.+?)(?:remix|mix|edit|version|dub)/i
-    ];
-
-    for (const pattern of remixPatterns) {
-      const match = title.match(pattern);
-      if (match && match[1]) {
-        return match[1].trim();
-      }
-    }
-    return null;
-  }
-
-  private calculateRemixScore(sourceTitle: string, targetTitle: string): number {
-    const sourceIsRemix = this.isRemixVersion(sourceTitle);
-    const targetIsRemix = this.isRemixVersion(targetTitle);
-    
-    if (!sourceIsRemix && !targetIsRemix) return 1; // Both are original versions
-    if (sourceIsRemix !== targetIsRemix) return 0.3; // One is remix, other isn't
-    
-    // Both are remixes
-    const sourceRemixer = this.extractRemixer(sourceTitle);
-    const targetRemixer = this.extractRemixer(targetTitle);
-    
-    if (sourceRemixer && targetRemixer) {
-      const remixerSimilarity = this.calculateSimilarity(sourceRemixer, targetRemixer);
-      return remixerSimilarity > 0.8 ? 1 : remixerSimilarity * 0.8;
-    }
-    
-    return 0.5; // Both are remixes but couldn't extract remixer info
-  }
-
   private findBestMatch(
-    results: Array<{ 
-      uri: string; 
-      name: string; 
-      artists: Array<{ name: string }>;
-      popularity?: number;
-    }>,
-    options: MatchOptions & { debugLog?: boolean }
+    results: SpotifyTrack[],
+    options: MatchOptions
   ): string | null {
     const {
       targetTitle,
       targetArtist,
-      styleContext,
-      moodContext,
-      minPopularity = 0,
-      maxPopularity = 100,
-      minSimilarity = 0.4,
+      minSimilarity = 0.5,
       requireExactMatch = false,
-      debugLog = false
+      debugLog = false,
+      duration,
+      album
     } = options;
 
-    let bestMatch: { uri: string; score: number; details?: any } | null = null;
+    let bestMatch: { 
+      uri: string; 
+      score: number; 
+      confidence: number;
+      details?: any 
+    } | null = null;
+
+    // Extract version and features information from target
+    const targetVersionInfo = this.extractVersionInfo(targetTitle);
+    const targetFeatures = this.extractFeatures(targetTitle, targetArtist);
+    const cleanTargetTitle = this.normalizeTitle(targetVersionInfo.baseTitle);
+    const cleanTargetArtist = this.normalizeArtist(targetArtist);
 
     if (debugLog) {
-      console.log('Matching against results:', {
-        resultCount: results.length,
-        targetTitle,
-        targetArtist,
+      console.log('Matching details:', {
+        cleanTargetTitle,
+        cleanTargetArtist,
+        targetVersion: targetVersionInfo.version,
+        targetFeatures,
         requireExactMatch
       });
     }
 
     for (const track of results) {
-      if (track.popularity !== undefined && 
-          (track.popularity < minPopularity || track.popularity > maxPopularity)) {
-        if (debugLog) {
-          console.log('Skipping track due to popularity:', {
-            track: track.name,
-            popularity: track.popularity,
-            range: `${minPopularity}-${maxPopularity}`
-          });
+      try {
+        const trackVersionInfo = this.extractVersionInfo(track.name);
+        const trackFeatures = this.extractFeatures(track.name, track.artists.map(a => a.name).join(', '));
+        const cleanTrackTitle = this.normalizeTitle(trackVersionInfo.baseTitle);
+        const cleanTrackArtists = track.artists.map(a => this.normalizeArtist(a.name));
+
+        // Skip if title length difference is too large
+        if (Math.abs(cleanTrackTitle.length - cleanTargetTitle.length) > 15) {
+          continue;
         }
-        continue;
-      }
 
-      const titleSimilarity = this.calculateSimilarity(targetTitle, track.name.toLowerCase());
-      const artistSimilarity = Math.max(
-        ...track.artists.map(artist => 
-          this.calculateSimilarity(targetArtist, artist.name.toLowerCase())
-        )
-      );
-      const remixScore = this.calculateRemixScore(targetTitle, track.name);
-      const contextScore = this.calculateContextScore(
-        track.name.toLowerCase(),
-        styleContext,
-        moodContext
-      );
+        // Calculate various similarity scores
+        const titleSimilarity = this.calculateSimilarity(cleanTargetTitle, cleanTrackTitle);
+        const artistSimilarity = Math.max(
+          ...cleanTrackArtists.map(artist => this.calculateSimilarity(cleanTargetArtist, artist))
+        );
+        const versionSimilarity = this.calculateVersionSimilarity(
+          targetVersionInfo.version,
+          trackVersionInfo.version
+        );
+        const featureSimilarity = this.calculateFeatureSimilarity(targetFeatures, trackFeatures);
+        const albumSimilarity = this.calculateAlbumSimilarity(
+          album,
+          track.album?.name
+        );
+        const durationSimilarity = duration && track.duration_ms ? 
+          this.calculateDurationSimilarity(duration, track.duration_ms / 1000) : 0.5;
 
-      // Adjusted scoring weights
-      const score = (
-        (titleSimilarity * 0.35) +
-        (artistSimilarity * 0.35) +
-        (remixScore * 0.2) +
-        (contextScore * 0.1)
-      );
+        // Perfect match conditions (relaxed thresholds)
+        if (cleanTargetTitle === cleanTrackTitle && 
+            artistSimilarity > 0.8 &&
+            versionSimilarity > 0.8) {
+          return track.uri;
+        }
 
-      if (debugLog) {
-        console.log('Track match details:', {
-          track: track.name,
-          artist: track.artists.map(a => a.name).join(', '),
-          titleSimilarity,
-          artistSimilarity,
-          remixScore,
-          contextScore,
-          finalScore: score,
-          popularity: track.popularity
-        });
-      }
+        // Calculate weighted score with adjusted weights
+        const score = (
+          (titleSimilarity * 0.40) +
+          (artistSimilarity * 0.35) +
+          (versionSimilarity * 0.05) +
+          (featureSimilarity * 0.05) +
+          (albumSimilarity * 0.10) +
+          (durationSimilarity * 0.05)
+        );
 
-      // For exact matches, require very high similarity
-      if (requireExactMatch && (titleSimilarity < 0.9 || artistSimilarity < 0.9)) {
-        continue;
-      }
+        // Calculate confidence level with relaxed thresholds
+        const confidence = (
+          (titleSimilarity > 0.8 ? 1 : titleSimilarity > 0.6 ? 0.5 : 0) +
+          (artistSimilarity > 0.8 ? 1 : artistSimilarity > 0.6 ? 0.5 : 0) +
+          (versionSimilarity > 0.7 ? 1 : versionSimilarity > 0.5 ? 0.5 : 0) +
+          (albumSimilarity > 0.7 ? 1 : albumSimilarity > 0.5 ? 0.5 : 0) +
+          (durationSimilarity > 0.8 ? 1 : durationSimilarity > 0.6 ? 0.5 : 0)
+        ) / 5;
 
-      if (score > minSimilarity && (!bestMatch || score > bestMatch.score)) {
-        bestMatch = { 
-          uri: track.uri, 
-          score,
-          details: debugLog ? {
+        if (debugLog) {
+          console.log('Track match details:', {
             track: track.name,
             artist: track.artists.map(a => a.name).join(', '),
             titleSimilarity,
             artistSimilarity,
-            remixScore,
-            contextScore,
-            score
-          } : undefined
-        };
+            versionSimilarity,
+            featureSimilarity,
+            albumSimilarity,
+            durationSimilarity,
+            finalScore: score,
+            confidence,
+            popularity: track.popularity
+          });
+        }
+
+        // Skip if exact match is required but similarity is too low
+        if (requireExactMatch && (titleSimilarity < 0.8 || artistSimilarity < 0.8)) {
+          continue;
+        }
+
+        // Update best match if this is better
+        if (score > minSimilarity && (!bestMatch || score > bestMatch.score)) {
+          bestMatch = { 
+            uri: track.uri, 
+            score,
+            confidence,
+            details: debugLog ? {
+              track: track.name,
+              artist: track.artists.map(a => a.name).join(', '),
+              titleSimilarity,
+              artistSimilarity,
+              versionSimilarity,
+              featureSimilarity,
+              albumSimilarity,
+              durationSimilarity,
+              score,
+              confidence
+            } : undefined
+          };
+        }
+      } catch (error) {
+        console.warn('Error processing track match:', error);
+        continue;
       }
     }
 
@@ -386,28 +428,115 @@ export class PlaylistExportService {
       console.log('Best match found:', bestMatch.details);
     }
 
-    return bestMatch?.uri || null;
+    // Return match with relaxed confidence threshold
+    return (bestMatch && bestMatch.confidence >= 0.5) ? bestMatch.uri : null;
   }
 
-  private calculateContextScore(
-    trackName: string,
-    styleContext: StyleContext,
-    moodContext: MoodContext
-  ): number {
-    let score = 0;
-    const trackLower = trackName.toLowerCase();
+  private calculateFeatureSimilarity(features1: string[], features2: string[]): number {
+    if (!features1.length && !features2.length) return 1;
+    if (!features1.length || !features2.length) return 0.5;
 
-    if (styleContext.terms.some(term => trackLower.includes(term))) {
-      score += 0.5;
-    }
-    if (styleContext.subGenres.some(genre => trackLower.includes(genre))) {
-      score += 0.3;
-    }
-    if (moodContext.terms.some(term => trackLower.includes(term))) {
-      score += 0.4;
-    }
+    const matches = features1.filter(f1 => 
+      features2.some(f2 => this.calculateSimilarity(f1, f2) > 0.8)
+    );
 
-    return Math.min(1, score);
+    return matches.length / Math.max(features1.length, features2.length);
+  }
+
+  private normalizeTitle(title: string): string {
+    // Preserve important version information in parentheses
+    const versionInfo = title.match(/\((.*?(?:remix|mix|edit|version|remaster|live).*?)\)/i);
+    const cleanTitle = title.toLowerCase()
+      .replace(/\(feat\.?.*?\)/gi, '') // Remove feature credits
+      .replace(/\[.*?\]/g, '')         // Remove bracketed content
+      .replace(/ft\.?|feat\.?/gi, '')  // Remove feature indicators
+      .replace(/[^\w\s\-']/g, ' ')     // Keep apostrophes and hyphens
+      .replace(/\s+/g, ' ')            // Normalize spaces
+      .trim();
+
+    return versionInfo ? `${cleanTitle} ${versionInfo[1].toLowerCase()}` : cleanTitle;
+  }
+
+  private normalizeArtist(artist: string): string {
+    return artist.toLowerCase()
+      .replace(/\s*&\s*/g, ' and ')    // Normalize & to 'and'
+      .replace(/\(.*?\)/g, '')         // Remove parenthetical content
+      .replace(/,\s*/g, ' ')           // Convert commas to spaces
+      .replace(/[^\w\s\-']/g, ' ')     // Keep apostrophes and hyphens
+      .replace(/\s+/g, ' ')            // Normalize spaces
+      .trim();
+  }
+
+  private extractFeatures(title: string, artist: string): string[] {
+    const features: string[] = [];
+    
+    // Extract features from title
+    const titleFeatures = title.match(/(?:feat\.?|ft\.?)\s*(.*?)(?:\)|\]|$)/i);
+    if (titleFeatures) {
+      features.push(...titleFeatures[1].split(/,|&/).map(f => f.trim()));
+    }
+    
+    // Extract features from artist string
+    const artistFeatures = artist.split(/,|&/).slice(1);
+    features.push(...artistFeatures.map(f => f.trim()));
+    
+    return [...new Set(features)].filter(Boolean);
+  }
+
+  private calculateDurationSimilarity(duration1: number, duration2: number): number {
+    const maxDiff = 30; // Maximum acceptable difference in seconds
+    const diff = Math.abs(duration1 - duration2);
+    return Math.max(0, 1 - (diff / maxDiff));
+  }
+
+  private calculateVersionSimilarity(version1: string, version2: string): number {
+    if (!version1 || !version2) return 1;
+    
+    const v1 = version1.toLowerCase();
+    const v2 = version2.toLowerCase();
+    
+    // Exact match
+    if (v1 === v2) return 1;
+    
+    // Check for common version types
+    const versionTypes = ['remix', 'edit', 'version', 'mix', 'remaster', 'live'];
+    const type1 = versionTypes.find(t => v1.includes(t));
+    const type2 = versionTypes.find(t => v2.includes(t));
+    
+    // If both have version types but different ones
+    if (type1 && type2 && type1 !== type2) return 0.3;
+    
+    // If only one has a version type
+    if ((type1 && !type2) || (!type1 && type2)) return 0.5;
+    
+    return this.calculateSimilarity(v1, v2);
+  }
+
+  private extractVersionInfo(title: string): { baseTitle: string; version: string } {
+    const versionMatch = title.match(/\((.*?(?:remix|mix|edit|version|remaster|live).*?)\)/i);
+    if (!versionMatch) {
+      return { baseTitle: title, version: '' };
+    }
+    
+    return {
+      baseTitle: title.replace(versionMatch[0], '').trim(),
+      version: versionMatch[1]
+    };
+  }
+
+  private calculateAlbumSimilarity(album1?: string, album2?: string): number {
+    if (!album1 || !album2) return 0.5; // Neutral score if either album is missing
+    
+    const norm1 = this.normalizeTitle(album1);
+    const norm2 = this.normalizeTitle(album2);
+    
+    // Exact match
+    if (norm1 === norm2) return 1;
+    
+    // Check if one album name contains the other
+    if (norm1.includes(norm2) || norm2.includes(norm1)) return 0.8;
+    
+    return this.calculateSimilarity(norm1, norm2);
   }
 
   private extractStyleContext(title: string): StyleContext {

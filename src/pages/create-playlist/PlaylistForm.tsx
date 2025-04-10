@@ -76,15 +76,18 @@ export function PlaylistForm({ initialData, onSubmit, loading }: PlaylistFormPro
           <input
             type="range"
             min="5"
-            max="50"
+            max="20"
             step="5"
             value={formData.songCount}
-            onChange={(e) => setFormData({ ...formData, songCount: parseInt(e.target.value) })}
+            onChange={(e) => {
+              const value = parseInt(e.target.value);
+              setFormData({ ...formData, songCount: Math.min(value, 20) });
+            }}
             className="w-full h-2 glass rounded-lg appearance-none cursor-pointer accent-[var(--primary-color)] hover:glass-dark transition-all duration-300"
           />
           <div className="flex justify-between text-sm text-gray-400 mt-2">
             <span>5 songs</span>
-            <span>50 songs</span>
+            <span>20 songs</span>
           </div>
         </div>
       </div>

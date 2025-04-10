@@ -5,6 +5,7 @@ import { ProtectedRoute } from '../../components/ProtectedRoute';
 import { MoodType } from '../../types/database';
 import { playlistService } from '../../services/playlistService';
 import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabase';
 
 interface PlaylistFormData {
   prompt: string;
@@ -26,6 +27,7 @@ export function CreatePlaylistPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<{ step: string; percent: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (data: PlaylistFormData) => {
@@ -36,15 +38,28 @@ export function CreatePlaylistPage() {
 
     setLoading(true);
     setError(null);
+    setProgress({ step: 'Creating playlist...', percent: 10 });
 
     try {
+      // Verify authentication status
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        throw new Error('Please log in again to continue');
+      }
+
       // First create the playlist
+      setProgress({ step: 'Initializing playlist...', percent: 20 });
       const playlist = await playlistService.createPlaylist({
         name: `Generated Playlist: ${data.prompt.slice(0, 50)}...`,
         description: data.prompt,
         prompt: data.prompt,
         mood: data.mood,
         is_public: data.isPublic
+      }).catch(error => {
+        if (error.message.includes('authentication')) {
+          throw new Error('Your session has expired. Please log in again.');
+        }
+        throw error;
       });
 
       if (!playlist || !playlist.id) {
@@ -52,6 +67,7 @@ export function CreatePlaylistPage() {
       }
 
       // Generate songs with diversity options
+      setProgress({ step: 'Generating songs...', percent: 40 });
       const generatedSongs = await playlistService.generatePlaylist(
         {
           prompt: data.prompt,
@@ -60,17 +76,32 @@ export function CreatePlaylistPage() {
         },
         // Add diversity options to ensure a better mix of artists
         {
-          maxSongsPerArtist: 2,  // Maximum 2 songs per artist
-          minUniqueArtists: Math.max(5, Math.floor(data.songCount / 3)) // At least 1/3 of playlist as unique artists
+          maxSongsPerArtist: 2,
+          minUniqueArtists: Math.max(5, Math.floor(data.songCount / 3))
         }
-      );
+      ).catch(error => {
+        if (error.message.includes('authentication') || error.message.includes('authorization')) {
+          throw new Error('Your session has expired. Please log in again.');
+        }
+        throw error;
+      });
 
       // Parse the generated songs JSON
+      setProgress({ step: 'Processing songs...', percent: 70 });
       const songs = JSON.parse(generatedSongs);
       
       // Add each song to the playlist
-      for (const song of songs) {
-        await playlistService.addSongToPlaylist(playlist.id, {
+      setProgress({ step: 'Adding songs to playlist...', percent: 85 });
+      const addSongPromises = songs.map((song: {
+        title: string;
+        artist: string;
+        album: string;
+        duration: number;
+        year: number;
+        bpm: number;
+        key?: string;
+      }) => 
+        playlistService.addSongToPlaylist(playlist.id, {
           title: song.title,
           artist: song.artist,
           album: song.album,
@@ -78,16 +109,34 @@ export function CreatePlaylistPage() {
           year: song.year,
           bpm: song.bpm,
           key: song.key
-        });
-      }
+        }).catch(error => {
+          if (error.message.includes('authentication')) {
+            throw new Error('Your session has expired. Please log in again.');
+          }
+          throw error;
+        })
+      );
+
+      await Promise.all(addSongPromises);
+      setProgress({ step: 'Finalizing...', percent: 95 });
 
       // Navigate to the result page
       navigate(`/playlist-result/${playlist.id}`);
     } catch (err) {
       console.error('Error creating playlist:', err);
-      setError('Failed to create playlist. Please try again.');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create playlist';
+      
+      if (errorMessage.includes('session') || errorMessage.includes('log in')) {
+        // Handle authentication errors
+        setError(`${errorMessage} Please try logging in again.`);
+        // Optionally redirect to login page
+        navigate('/login', { state: { returnTo: '/create-playlist' } });
+      } else {
+        setError(errorMessage);
+      }
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   };
 
@@ -112,18 +161,30 @@ export function CreatePlaylistPage() {
 
             {/* Main Form Section */}
             <div className="glass-card depth-3 p-8 rounded-2xl card-hover transition-all duration-300 animate-slide-up" style={{ animationDelay: '0.4s' }}>
+              {error && (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                  {error}
+                </div>
+              )}
+              {progress && (
+                <div className="mb-6">
+                  <div className="flex justify-between mb-2">
+                    <span className="text-sm font-medium">{progress.step}</span>
+                    <span className="text-sm font-medium">{progress.percent}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
+                    <div 
+                      className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+                      style={{ width: `${progress.percent}%` }}
+                    />
+                  </div>
+                </div>
+              )}
               <PlaylistForm
                 initialData={initialFormData}
                 onSubmit={handleSubmit}
                 loading={loading}
               />
-              {error && (
-                <div className="mt-6 p-4 bg-red-900/20 border border-red-500/50 rounded-lg text-red-200 glass-dark animate-fade-in">
-                  <div className="font-extralight tracking-wider">
-                    {error}
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Loading State */}

@@ -55,6 +55,8 @@ interface GeneratePlaylistRequest {
 
 export class PlaylistService {
   private static instance: PlaylistService;
+  private cache: Map<string, { data: string; timestamp: number }> = new Map();
+  private readonly CACHE_TTL = 1000 * 60 * 60; // 1 hour cache TTL
 
   private constructor() {}
 
@@ -531,7 +533,10 @@ export class PlaylistService {
   ): Promise<string> {
     try {
       let prompt: string;
-      let generationOptions: PlaylistGenerationOptions = {};
+      let generationOptions: PlaylistGenerationOptions = {
+        temperature: 0.7,
+        maxTokens: 2000
+      };
       let bpmRange: { min?: number; max?: number } = {};
       let mood: string | undefined;
       let songCount: number = 20;
@@ -549,28 +554,46 @@ export class PlaylistService {
         bpmRange = this.extractBpmRangeFromPrompt(prompt);
         
         if (promptOrOptions.options) {
-          generationOptions = { ...promptOrOptions.options };
+          generationOptions = { ...generationOptions, ...promptOrOptions.options };
         }
       }
 
-      // Get mood-specific BPM ranges if not explicitly set
-      if (!bpmRange.min && !bpmRange.max) {
-        bpmRange = this.getMoodBasedBPMRange(mood);
+      // Check cache first
+      const cacheKey = JSON.stringify({ prompt, mood, songCount, genres, bpmRange });
+      const cached = this.cache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+        // Apply BPM correction to cached data
+        const songs = JSON.parse(cached.data);
+        const correctedSongs = this.correctPlaylistBPM(songs, bpmRange, diversityOptions);
+        return JSON.stringify(correctedSongs);
       }
 
-      // Calculate genre weights and distribution
-      const genreDistribution = this.calculateGenreDistribution(genres, songCount);
-      const genreInstructions = genres.length > 0 
-        ? `
+      // Break down large playlists into batches of 30 songs
+      const BATCH_SIZE = 30;
+      let allSongs: any[] = [];
+      
+      for (let i = 0; i < Math.ceil(songCount / BATCH_SIZE); i++) {
+        const batchSize = Math.min(BATCH_SIZE, songCount - (i * BATCH_SIZE));
+        const batchPrompt = `${prompt} (Part ${i + 1}/${Math.ceil(songCount / BATCH_SIZE)})`;
+        
+        // Get mood-specific BPM ranges if not explicitly set
+        if (!bpmRange.min && !bpmRange.max) {
+          bpmRange = this.getMoodBasedBPMRange(mood);
+        }
+
+        // Calculate genre weights and distribution for this batch
+        const batchGenreDistribution = this.calculateGenreDistribution(genres, batchSize);
+        const genreInstructions = genres.length > 0 
+          ? `
 Genre Distribution Requirements:
-${Object.entries(genreDistribution)
-  .map(([genre, count]) => `- ${genre}: approximately ${count} songs`)
-  .join('\n')}
+${Object.entries(batchGenreDistribution)
+    .map(([genre, count]) => `- ${genre}: approximately ${count} songs`)
+    .join('\n')}
 
 Maintain this genre balance while ensuring smooth transitions between genres. When mixing genres, prefer songs that can bridge different styles naturally.`
-        : 'Create a well-balanced mix of genres that work well together.';
+          : 'Create a well-balanced mix of genres that work well together.';
 
-      generationOptions.systemPrompt = `You are a world-class music curator with deep knowledge of music history, genres, and artist catalogs. Generate an authentic ${mood || 'versatile'} playlist that follows these specific requirements:
+        generationOptions.systemPrompt = `You are a world-class music curator with deep knowledge of music history, genres, and artist catalogs. Generate an authentic ${mood || 'versatile'} playlist that follows these specific requirements:
 
 MOOD & TEMPO:
 ${this.getMoodSpecificInstructions(mood)}
@@ -581,7 +604,7 @@ GENRE REQUIREMENTS:
 ${genreInstructions}
 
 PLAYLIST STRUCTURE:
-- Generate exactly ${songCount} songs
+- Generate exactly ${batchSize} songs
 - Ensure smooth transitions between songs
 - Create a natural energy flow throughout the playlist
 ${diversityOptions ? this.getDiversityInstructions(diversityOptions) : ''}
@@ -601,7 +624,7 @@ Your response must be a valid JSON array of song objects with the following fiel
 CRITICAL REQUIREMENTS:
 1. Maintain the specified genre distribution while ensuring playlist cohesion
 2. Ensure natural BPM progression within the specified range
-3. Select songs that genuinely match the ${mood || 'requested'} mood in terms of:
+3. Select songs that genuinely match the 
    - Lyrical themes
    - Instrumental elements
    - Vocal delivery
@@ -611,38 +634,39 @@ CRITICAL REQUIREMENTS:
 
 Do not return songs with identical BPMs and durations - ensure natural variety in your playlist.`;
 
-      // Validate prompt
-      if (!prompt || typeof prompt !== 'string') {
-        throw new Error('Invalid prompt: Must be a non-empty string');
-      }
-
-      const response = await apiService.generatePlaylist(prompt, generationOptions);
-      
-      if (response.error) {
-        throw new PlaylistGenerationError(
-          response.error,
-          { prompt, options: generationOptions }
-        );
-      }
-
-      if (!response.data) {
-        throw new Error('No playlist data received');
-      }
-
-      // Parse the response and validate/fix BPM values if needed
-      try {
-        const songs = JSON.parse(response.data);
-        if (Array.isArray(songs)) {
-          // Use our enhanced BPM correction method for better variety
-          const correctedSongs = this.correctPlaylistBPM(songs, bpmRange, diversityOptions);
-          return JSON.stringify(correctedSongs);
+        const response = await apiService.generatePlaylist(batchPrompt, generationOptions);
+        
+        if (response.error) {
+          throw new PlaylistGenerationError(
+            response.error,
+            { prompt: batchPrompt, options: generationOptions }
+          );
         }
-      } catch (e) {
-        // If there's an error parsing, return original response
-        console.warn('Error processing songs:', e);
+
+        if (!response.data) {
+          throw new Error('No playlist data received');
+        }
+
+        const batchSongs = JSON.parse(response.data);
+        allSongs = [...allSongs, ...batchSongs];
+
+        // Small delay between batches to avoid rate limits
+        if (i < Math.ceil(songCount / BATCH_SIZE) - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
 
-      return response.data;
+      // Cache the combined results
+      const finalData = JSON.stringify(allSongs);
+      this.cache.set(cacheKey, {
+        data: finalData,
+        timestamp: Date.now()
+      });
+
+      // Apply BPM correction to the combined results
+      const correctedSongs = this.correctPlaylistBPM(allSongs, bpmRange, diversityOptions);
+      return JSON.stringify(correctedSongs);
+
     } catch (error) {
       console.error('Error generating playlist:', error);
       throw error instanceof PlaylistGenerationError
