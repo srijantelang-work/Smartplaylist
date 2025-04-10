@@ -41,51 +41,21 @@ export function PlaylistExport({ playlistId, className = '', onExportComplete }:
       const hasSpotifyTokens = user?.user_metadata?.spotify_tokens;
 
       if (!hasSpotifyTokens) {
-        // Generate a unique state for this export attempt
-        const exportState = {
-          isExporting: true,
+        // Store current path and playlist details before redirecting
+        const exportDetails = {
           playlistId,
           isPublic,
-          timestamp: Date.now(),
+          description: undefined,
+          returnPath: `/playlist/${playlistId}`,
           state: crypto.randomUUID()
         };
 
-        // Store export state with multiple fallbacks
-        const storeState = () => {
-          const storageOptions = [
-            () => sessionStorage.setItem('playlist_export_state', JSON.stringify(exportState)),
-            () => localStorage.setItem('playlist_export_state', JSON.stringify(exportState)),
-            () => document.cookie = `playlist_export_state=${encodeURIComponent(JSON.stringify(exportState))}; path=/; max-age=3600;`
-          ];
-
-          let stored = false;
-          for (const store of storageOptions) {
-            try {
-              store();
-              stored = true;
-            } catch (e) {
-              console.warn('Storage attempt failed:', e);
-            }
-          }
-          return stored;
-        };
-
-        if (!storeState()) {
-          throw new Error('Failed to store export state. Please try again.');
-        }
-
-        // Store current path and playlist details before redirecting
-        const exportDetails = {
-          ...exportState,
-          description: undefined,
-          returnPath: `/playlist/${playlistId}`
-        };
-
-        console.log('Starting Spotify authorization:', {
-          timestamp: new Date().toISOString(),
-          exportState,
-          currentUrl: window.location.href
-        });
+        // Store export state in sessionStorage
+        sessionStorage.setItem('playlist_export_state', JSON.stringify({
+          isExporting: true,
+          playlistId,
+          isPublic
+        }));
 
         // Start Spotify authorization process
         await spotifyService.authorize(exportDetails);
@@ -116,7 +86,6 @@ export function PlaylistExport({ playlistId, className = '', onExportComplete }:
       setIsExporting(false);
       // Clean up export state
       sessionStorage.removeItem('playlist_export_state');
-      localStorage.removeItem('playlist_export_state');
     }
   };
 
