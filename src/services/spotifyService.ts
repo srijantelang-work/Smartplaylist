@@ -297,20 +297,33 @@ export class SpotifyService {
 
   private async exchangeCodeForTokens(code: string, isSupabaseAuth: boolean): Promise<SpotifyTokens> {
     if (!this.clientId || !this.clientSecret) {
+      console.error('Spotify credentials missing:', {
+        hasClientId: !!this.clientId,
+        hasClientSecret: !!this.clientSecret,
+        env: {
+          hasViteSpotifyClientId: !!import.meta.env.VITE_SPOTIFY_CLIENT_ID,
+          hasViteSpotifyClientSecret: !!import.meta.env.VITE_SPOTIFY_CLIENT_SECRET,
+          hasViteAppUrl: !!import.meta.env.VITE_APP_URL,
+          mode: import.meta.env.MODE,
+          prod: import.meta.env.PROD
+        }
+      });
       throw new Error('Spotify credentials are not configured');
     }
 
     const redirectUri = this.getRedirectUri(isSupabaseAuth);
     
-    // Log the token exchange attempt
-    console.log('Attempting Spotify token exchange:', {
+    // Enhanced logging for debugging
+    console.log('Spotify token exchange details:', {
       timestamp: new Date().toISOString(),
       isSupabaseAuth,
       redirectUri,
       codeLength: code?.length,
       hasClientId: !!this.clientId,
       hasClientSecret: !!this.clientSecret,
-      environment: import.meta.env.MODE
+      environment: import.meta.env.MODE,
+      clientIdPrefix: this.clientId?.substring(0, 4),
+      requestUrl: 'https://accounts.spotify.com/api/token'
     });
 
     try {
