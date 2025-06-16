@@ -68,6 +68,21 @@ export function Navbar() {
 
           {/* Right section */}
           <div className="flex items-center space-x-4">
+            {/* Legal Links - Hidden on mobile */}
+            <div className="hidden md:flex md:items-center md:space-x-4">
+              <Link
+                to="/privacy"
+                className="px-4 py-2 rounded-full text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                Privacy
+              </Link>
+              <Link
+                to="/terms"
+                className="px-4 py-2 rounded-full text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                Terms
+              </Link>
+            </div>
             {user ? (
               <div className="flex items-center space-x-4">
                 <button
@@ -150,6 +165,23 @@ export function Navbar() {
                 </Link>
               </>
             )}
+            {/* Legal Links in Mobile Menu */}
+            <div className="border-t border-white/10 mt-2 pt-2">
+              <Link
+                to="/privacy"
+                className="block px-4 py-2 rounded-md text-base font-medium text-white/80 hover:text-white hover:bg-white/10"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Privacy Policy
+              </Link>
+              <Link
+                to="/terms"
+                className="block px-4 py-2 rounded-md text-base font-medium text-white/80 hover:text-white hover:bg-white/10"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Terms & Conditions
+              </Link>
+            </div>
           </div>
         </div>
       )}
