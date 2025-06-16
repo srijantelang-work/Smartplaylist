@@ -156,7 +156,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           scopes: provider === 'spotify' 
             ? 'playlist-modify-public playlist-modify-private user-read-private user-read-email'
             : provider === 'google'
-            ? 'https://www.googleapis.com/auth/youtube.force-ssl'
+            ? 'profile email'
             : undefined,
           queryParams: provider === 'spotify' ? {
             show_dialog: 'true',
@@ -204,7 +204,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      console.log('Starting sign out process...');
+      
+      // Clear any stored auth states first
+      sessionStorage.removeItem('spotify_auth_state');
+      localStorage.removeItem('spotify_auth_state');
+      localStorage.removeItem('auth_redirect');
+      localStorage.removeItem('auth_state');
+      
+      // Sign out from Supabase with proper error handling
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('Sign out error:', {
+          error,
+          message: error.message,
+          timestamp: new Date().toISOString()
+        });
+        throw error;
+      }
+
+      // Clear any cached auth state
+      setUser(null);
+      
+      // Add a longer delay to ensure all operations complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Force a page reload to clear any cached states and redirect to home
+      window.location.replace('/');
+    } catch (error) {
+      console.error('Unexpected error during sign out:', error);
+      // Still try to redirect even if there's an error
+      window.location.replace('/');
+    }
   };
 
   const refreshUser = async () => {

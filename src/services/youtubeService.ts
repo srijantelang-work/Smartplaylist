@@ -90,10 +90,14 @@ export class YouTubeService {
   private readonly clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
   private readonly apiKey = import.meta.env.VITE_YOUTUBE_API_KEY;
   private readonly redirectUri = `${window.location.origin}/auth/callback`;
-  private readonly scopes = [
-    'https://www.googleapis.com/auth/youtube',
-    'https://www.googleapis.com/auth/youtube.force-ssl'
-  ];
+  
+  // TODO: YouTube integration will be implemented in a future update
+  // For now, we're only using Google OAuth for authentication
+  private readonly scopes: string[] = [];
+  // private readonly scopes = [
+  //   'https://www.googleapis.com/auth/youtube',
+  //   'https://www.googleapis.com/auth/youtube.force-ssl'
+  // ];
 
   private constructor() {}
 

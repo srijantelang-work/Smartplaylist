@@ -20,9 +20,14 @@ export function UserDropdown() {
 
   const handleSignOut = async () => {
     try {
+      setIsOpen(false); // Close dropdown immediately
       await signOut();
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error('Error signing out:', {
+        error,
+        timestamp: new Date().toISOString()
+      });
+      // The signOut function will handle the redirect
     }
   };
 
