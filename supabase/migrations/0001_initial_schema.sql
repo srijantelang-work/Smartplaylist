@@ -114,6 +114,15 @@ BEGIN
       ON public.users FOR UPDATE
       USING (auth.uid() = id);
   END IF;
+  
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'users' AND policyname = 'Users can create own profile'
+  ) THEN
+    CREATE POLICY "Users can create own profile"
+      ON public.users FOR INSERT
+      WITH CHECK (auth.uid() = id);
+  END IF;
 END
 $$;
 
