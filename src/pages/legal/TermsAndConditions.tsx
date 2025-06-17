@@ -162,7 +162,7 @@ export function TermsAndConditions() {
             </p>
             <ul className="list-none space-y-2">
               <li>Email: <a href="mailto:legal@smartplaylist.com" className="text-[#1DB954] hover:underline">legal@smartplaylist.com</a></li>
-              <li>Address: [Your Business Address]</li>
+              <li>Address: workforsrijan27@gmail.com</li>
             </ul>
           </section>
 
