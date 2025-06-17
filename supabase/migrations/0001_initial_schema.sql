@@ -2,19 +2,25 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Create custom types
-CREATE TYPE mood_type AS ENUM (
-  'happy',
-  'sad',
-  'energetic',
-  'relaxed',
-  'focused',
-  'party',
-  'workout',
-  'chill'
-);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'mood_type') THEN
+    CREATE TYPE mood_type AS ENUM (
+      'happy',
+      'sad',
+      'energetic',
+      'relaxed',
+      'focused',
+      'party',
+      'workout',
+      'chill'
+    );
+  END IF;
+END
+$$;
 
 -- Create users table (extends Supabase auth.users)
-CREATE TABLE public.users (
+CREATE TABLE IF NOT EXISTS public.users (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   full_name TEXT,
   avatar_url TEXT,
@@ -24,7 +30,7 @@ CREATE TABLE public.users (
 );
 
 -- Create user_preferences table
-CREATE TABLE public.user_preferences (
+CREATE TABLE IF NOT EXISTS public.user_preferences (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
   preferred_genres TEXT[] DEFAULT '{}',
@@ -38,7 +44,7 @@ CREATE TABLE public.user_preferences (
 );
 
 -- Create playlists table
-CREATE TABLE public.playlists (
+CREATE TABLE IF NOT EXISTS public.playlists (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
@@ -55,7 +61,7 @@ CREATE TABLE public.playlists (
 );
 
 -- Create songs table
-CREATE TABLE public.songs (
+CREATE TABLE IF NOT EXISTS public.songs (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   playlist_id UUID REFERENCES public.playlists(id) ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
@@ -73,13 +79,13 @@ CREATE TABLE public.songs (
 );
 
 -- Create indexes
-CREATE INDEX idx_users_spotify_id ON public.users(spotify_id);
-CREATE INDEX idx_user_preferences_user_id ON public.user_preferences(user_id);
-CREATE INDEX idx_playlists_user_id ON public.playlists(user_id);
-CREATE INDEX idx_playlists_spotify_id ON public.playlists(spotify_id);
-CREATE INDEX idx_songs_playlist_id ON public.songs(playlist_id);
-CREATE INDEX idx_songs_spotify_id ON public.songs(spotify_id);
-CREATE INDEX idx_songs_bpm ON public.songs(bpm);
+CREATE INDEX IF NOT EXISTS idx_users_spotify_id ON public.users(spotify_id);
+CREATE INDEX IF NOT EXISTS idx_user_preferences_user_id ON public.user_preferences(user_id);
+CREATE INDEX IF NOT EXISTS idx_playlists_user_id ON public.playlists(user_id);
+CREATE INDEX IF NOT EXISTS idx_playlists_spotify_id ON public.playlists(spotify_id);
+CREATE INDEX IF NOT EXISTS idx_songs_playlist_id ON public.songs(playlist_id);
+CREATE INDEX IF NOT EXISTS idx_songs_spotify_id ON public.songs(spotify_id);
+CREATE INDEX IF NOT EXISTS idx_songs_bpm ON public.songs(bpm);
 
 -- Set up Row Level Security (RLS)
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
@@ -89,64 +95,135 @@ ALTER TABLE public.songs ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies
 -- Users can only read and update their own profile
-CREATE POLICY "Users can view own profile"
-  ON public.users FOR SELECT
-  USING (auth.uid() = id);
-
-CREATE POLICY "Users can update own profile"
-  ON public.users FOR UPDATE
-  USING (auth.uid() = id);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'users' AND policyname = 'Users can view own profile'
+  ) THEN
+    CREATE POLICY "Users can view own profile"
+      ON public.users FOR SELECT
+      USING (auth.uid() = id);
+  END IF;
+  
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'users' AND policyname = 'Users can update own profile'
+  ) THEN
+    CREATE POLICY "Users can update own profile"
+      ON public.users FOR UPDATE
+      USING (auth.uid() = id);
+  END IF;
+END
+$$;
 
 -- User preferences policies
-CREATE POLICY "Users can view own preferences"
-  ON public.user_preferences FOR SELECT
-  USING (auth.uid() = user_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'user_preferences' AND policyname = 'Users can view own preferences'
+  ) THEN
+    CREATE POLICY "Users can view own preferences"
+      ON public.user_preferences FOR SELECT
+      USING (auth.uid() = user_id);
+  END IF;
 
-CREATE POLICY "Users can update own preferences"
-  ON public.user_preferences FOR UPDATE
-  USING (auth.uid() = user_id);
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'user_preferences' AND policyname = 'Users can update own preferences'
+  ) THEN
+    CREATE POLICY "Users can update own preferences"
+      ON public.user_preferences FOR UPDATE
+      USING (auth.uid() = user_id);
+  END IF;
 
-CREATE POLICY "Users can create own preferences"
-  ON public.user_preferences FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'user_preferences' AND policyname = 'Users can create own preferences'
+  ) THEN
+    CREATE POLICY "Users can create own preferences"
+      ON public.user_preferences FOR INSERT
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+END
+$$;
 
 -- Playlist policies
-CREATE POLICY "Users can view public playlists"
-  ON public.playlists FOR SELECT
-  USING (is_public OR auth.uid() = user_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'playlists' AND policyname = 'Users can view public playlists'
+  ) THEN
+    CREATE POLICY "Users can view public playlists"
+      ON public.playlists FOR SELECT
+      USING (is_public OR auth.uid() = user_id);
+  END IF;
 
-CREATE POLICY "Users can create own playlists"
-  ON public.playlists FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'playlists' AND policyname = 'Users can create own playlists'
+  ) THEN
+    CREATE POLICY "Users can create own playlists"
+      ON public.playlists FOR INSERT
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
 
-CREATE POLICY "Users can update own playlists"
-  ON public.playlists FOR UPDATE
-  USING (auth.uid() = user_id);
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'playlists' AND policyname = 'Users can update own playlists'
+  ) THEN
+    CREATE POLICY "Users can update own playlists"
+      ON public.playlists FOR UPDATE
+      USING (auth.uid() = user_id);
+  END IF;
 
-CREATE POLICY "Users can delete own playlists"
-  ON public.playlists FOR DELETE
-  USING (auth.uid() = user_id);
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'playlists' AND policyname = 'Users can delete own playlists'
+  ) THEN
+    CREATE POLICY "Users can delete own playlists"
+      ON public.playlists FOR DELETE
+      USING (auth.uid() = user_id);
+  END IF;
+END
+$$;
 
 -- Songs policies
-CREATE POLICY "Users can view songs in accessible playlists"
-  ON public.songs FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.playlists
-      WHERE id = songs.playlist_id
-      AND (is_public OR user_id = auth.uid())
-    )
-  );
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'songs' AND policyname = 'Users can view songs in accessible playlists'
+  ) THEN
+    CREATE POLICY "Users can view songs in accessible playlists"
+      ON public.songs FOR SELECT
+      USING (
+        EXISTS (
+          SELECT 1 FROM public.playlists
+          WHERE id = songs.playlist_id
+          AND (is_public OR user_id = auth.uid())
+        )
+      );
+  END IF;
 
-CREATE POLICY "Users can manage songs in own playlists"
-  ON public.songs FOR ALL
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.playlists
-      WHERE id = songs.playlist_id
-      AND user_id = auth.uid()
-    )
-  );
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies 
+    WHERE tablename = 'songs' AND policyname = 'Users can manage songs in own playlists'
+  ) THEN
+    CREATE POLICY "Users can manage songs in own playlists"
+      ON public.songs FOR ALL
+      USING (
+        EXISTS (
+          SELECT 1 FROM public.playlists
+          WHERE id = songs.playlist_id
+          AND user_id = auth.uid()
+        )
+      );
+  END IF;
+END
+$$;
 
 -- Create functions for updating timestamps
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -158,17 +235,36 @@ END;
 $$ language 'plpgsql';
 
 -- Create triggers for updating timestamps
-CREATE TRIGGER update_users_updated_at
-  BEFORE UPDATE ON public.users
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger 
+    WHERE tgname = 'update_users_updated_at'
+  ) THEN
+    CREATE TRIGGER update_users_updated_at
+      BEFORE UPDATE ON public.users
+      FOR EACH ROW
+      EXECUTE FUNCTION update_updated_at_column();
+  END IF;
 
-CREATE TRIGGER update_user_preferences_updated_at
-  BEFORE UPDATE ON public.user_preferences
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column();
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger 
+    WHERE tgname = 'update_user_preferences_updated_at'
+  ) THEN
+    CREATE TRIGGER update_user_preferences_updated_at
+      BEFORE UPDATE ON public.user_preferences
+      FOR EACH ROW
+      EXECUTE FUNCTION update_updated_at_column();
+  END IF;
 
-CREATE TRIGGER update_playlists_updated_at
-  BEFORE UPDATE ON public.playlists
-  FOR EACH ROW
-  EXECUTE FUNCTION update_updated_at_column(); 
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger 
+    WHERE tgname = 'update_playlists_updated_at'
+  ) THEN
+    CREATE TRIGGER update_playlists_updated_at
+      BEFORE UPDATE ON public.playlists
+      FOR EACH ROW
+      EXECUTE FUNCTION update_updated_at_column();
+  END IF;
+END
+$$; 
