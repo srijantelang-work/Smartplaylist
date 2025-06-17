@@ -35,6 +35,8 @@ app.use(cors({
     const allowedOrigins = [
       'https://smartplaylist.vercel.app',
       'https://smartplaylist.vercel.app/',
+      'https://smartplaylist.software',
+      'https://smartplaylist.software/',
       process.env.NODE_ENV === 'development' ? 'http://localhost:5173' : null
     ].filter(Boolean);
 
