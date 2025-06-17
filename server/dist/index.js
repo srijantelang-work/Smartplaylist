@@ -16,33 +16,139 @@ const groq = new groq_sdk_1.Groq({
     apiKey: process.env.GROQ_API_KEY,
 });
 // Initialize Supabase client for auth
-const supabase = (0, supabase_js_1.createClient)(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
+const supabase = (0, supabase_js_1.createClient)(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL, process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY);
+// Define allowed origins
+const allowedOrigins = [
+    'https://smartplaylist.vercel.app',
+    'https://smartplaylist.software',
+    'http://localhost:5173'
+];
+// CORS configuration
 app.use((0, cors_1.default)({
-    origin: process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production'
-        ? 'https://smartplaylist.vercel.app'
-        : 'http://localhost:5173'),
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin)
+            return callback(null, true);
+        if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+            callback(null, origin);
+        }
+        else {
+            console.error('Origin not allowed:', origin);
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: [
+        'X-CSRF-Token',
+        'X-Requested-With',
+        'Accept',
+        'Accept-Version',
+        'Content-Length',
+        'Content-MD5',
+        'Content-Type',
+        'Date',
+        'X-Api-Version',
+        'Authorization'
+    ],
+    exposedHeaders: ['Content-Length', 'X-Api-Version'],
+    maxAge: 86400 // 24 hours
 }));
+// Handle preflight requests for all routes
+app.options('*', (0, cors_1.default)());
 app.use(express_1.default.json());
 // Middleware to verify Supabase JWT
 const authenticateUser = async (req, res, next) => {
     try {
         const authHeader = req.headers.authorization;
         if (!authHeader) {
-            return res.status(401).json({ error: 'No authorization header' });
+            return res.status(401).json({
+                error: 'No authorization header',
+                details: 'Authorization header is required'
+            });
         }
         const token = authHeader.split(' ')[1];
-        const { data: { user }, error } = await supabase.auth.getUser(token);
-        if (error || !user) {
-            return res.status(401).json({ error: 'Invalid token' });
+        if (!token) {
+            return res.status(401).json({
+                error: 'Invalid authorization header format',
+                details: 'Bearer token is required'
+            });
         }
-        req.user = user;
-        next();
+        // First verify the JWT is valid
+        const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+        if (userError) {
+            console.error('Auth error:', {
+                error: userError,
+                token: token.substring(0, 10) + '...',
+                timestamp: new Date().toISOString(),
+                headers: req.headers
+            });
+            // Check if the error is due to an expired token
+            if (userError.message?.includes('expired')) {
+                return res.status(401).json({
+                    error: 'Token expired',
+                    details: 'Please refresh your session'
+                });
+            }
+            return res.status(401).json({
+                error: 'Invalid token',
+                details: userError.message
+            });
+        }
+        if (!user) {
+            return res.status(401).json({
+                error: 'No user found',
+                details: 'Token validation succeeded but no user was found'
+            });
+        }
+        // Verify JWT claims directly
+        try {
+            const { data: jwt, error: jwtError } = await supabase.auth.getUser(token);
+            if (jwtError || !jwt.user) {
+                console.error('JWT verification failed:', {
+                    error: jwtError,
+                    userId: user.id,
+                    timestamp: new Date().toISOString()
+                });
+                return res.status(401).json({
+                    error: 'Invalid token',
+                    details: jwtError?.message || 'JWT verification failed'
+                });
+            }
+            // Create a mock session since we have a valid user and token
+            const session = {
+                access_token: token,
+                user: jwt.user,
+                expires_at: Math.floor(Date.now() / 1000) + 3600 // 1 hour from now
+            };
+            // Add user and session to request
+            req.user = user;
+            req.session = session;
+            next();
+        }
+        catch (error) {
+            console.error('Session verification error:', {
+                error,
+                userId: user.id,
+                timestamp: new Date().toISOString()
+            });
+            return res.status(401).json({
+                error: 'Session verification failed',
+                details: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
     }
     catch (error) {
-        res.status(401).json({ error: 'Authentication failed' });
+        console.error('Authentication error:', {
+            error,
+            timestamp: new Date().toISOString(),
+            headers: req.headers,
+            stack: error instanceof Error ? error.stack : undefined
+        });
+        res.status(500).json({
+            error: 'Authentication failed',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
     }
 };
 // Root route handler
@@ -98,6 +204,12 @@ app.post('/api/playlist/generate', authenticateUser, async (req, res) => {
                 error: 'Invalid prompt. Must be a non-empty string.'
             });
         }
+        // Validate song count if provided in options
+        if (options.songCount && (typeof options.songCount !== 'number' || options.songCount > 20)) {
+            return res.status(400).json({
+                error: 'Invalid song count. Maximum allowed is 20 songs.'
+            });
+        }
         // Sanitize and validate options
         const sanitizedOptions = {
             systemPrompt: typeof options.systemPrompt === 'string'
@@ -108,12 +220,14 @@ app.post('/api/playlist/generate', authenticateUser, async (req, res) => {
            - artist (string): The artist name
            - album (string, optional): The album name
            - year (number, optional): Release year
+           Important: Never generate more than 20 songs regardless of the request.
            Do not include any explanatory text, only return the JSON array.`,
             temperature: typeof options.temperature === 'number' ? Math.min(Math.max(options.temperature, 0), 1) : 0.7,
             maxTokens: typeof options.maxTokens === 'number' ? Math.min(Math.max(options.maxTokens, 100), 4000) : 4000,
         };
-        // Enhance the user prompt to ensure JSON output
+        // Enhance the user prompt to ensure JSON output and respect song limit
         const enhancedPrompt = `Generate a playlist based on this request: "${prompt}"
+Generate no more than 20 songs total.
 Format the response as a JSON array of songs with this structure:
 [
   {
@@ -155,6 +269,10 @@ Important: Return ONLY the JSON array, no other text.`;
             // Validate the response structure
             if (!Array.isArray(parsedContent)) {
                 throw new Error('Response must be an array of songs');
+            }
+            // Enforce 20 song limit
+            if (parsedContent.length > 20) {
+                parsedContent.splice(20); // Keep only first 20 songs
             }
             // Validate each song in the array
             const validatedContent = parsedContent.map(song => {

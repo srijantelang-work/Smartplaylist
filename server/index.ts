@@ -30,18 +30,20 @@ declare global {
   }
 }
 
+// Define allowed origins
+const allowedOrigins = [
+  'https://smartplaylist.software',
+  'http://localhost:5173'
+];
+
+// CORS configuration
 app.use(cors({
   origin: (origin, callback) => {
-    const allowedOrigins = [
-      'https://smartplaylist.vercel.app',
-      'https://smartplaylist.vercel.app/',
-      'https://smartplaylist.software',
-      'https://smartplaylist.software/',
-      process.env.NODE_ENV === 'development' ? 'http://localhost:5173' : null
-    ].filter(Boolean);
-
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+      callback(null, origin);
     } else {
       console.error('Origin not allowed:', origin);
       callback(new Error('Not allowed by CORS'));
