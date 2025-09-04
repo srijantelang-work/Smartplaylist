@@ -197,6 +197,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 👥 Authors
 
 -Srijan Telang - Initial work - (https://github.com/Srijan272002)
+-Sagnik Chowdhury - Data Processing and AI Integration - (https://github.com/asapSAGNIK)
 
 ## 🙏 Acknowledgments
 
